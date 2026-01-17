@@ -2,18 +2,19 @@ import os
 import json
 import re
 from dotenv import load_dotenv
-from google import genai
+import openrouter  # Import OpenRouter
 from backend.app.flags import FLAGS
 from backend.app.weights import FLAG_WEIGHTS
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+# Fetch the OpenRouter API Key from the environment
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not API_KEY:
-    raise ValueError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in .env")
+    raise ValueError("Missing OPENROUTER_API_KEY in .env")
 
-client = genai.Client(api_key=API_KEY)
-
+# Initialize the OpenRouter API configuration using the OpenRouter class
+openrouter.api_key = API_KEY  # Set API key directly in OpenRouter
 
 def _extract_json(text: str) -> dict:
     """
@@ -35,14 +36,17 @@ def calculate_scores(findings: dict) -> dict:
     """
     Calculates the overall score and category scores based on flag weights.
     """
-    category_scores = {}
+    category_scores = {category: 0 for category in FLAGS.keys()}  # Initialize category scores
     overall_score = 0
     total_weight = 0
 
-    for flag, finding in findings.items():
-        weight = FLAG_WEIGHTS.get(flag, 0)  # Default to 0 if flag not found
+    for finding in findings:
+        flag = finding['flag']
         status = finding['status']
         confidence = finding['confidence']
+
+        # Retrieve the flag weight from FLAG_WEIGHTS (default to 0 if flag not found)
+        weight = FLAG_WEIGHTS.get(flag, 0)
 
         # Score logic
         if status == "true":
@@ -51,7 +55,7 @@ def calculate_scores(findings: dict) -> dict:
             overall_score += weight * 0.5  # Less weight for unknown flags
 
         # Update category scores
-        category = FLAGS.get(flag, {}).get('category', 'unknown')
+        category = FLAGS.get(finding['category'], {}).get('category', 'unknown')
         if category not in category_scores:
             category_scores[category] = 0
         category_scores[category] += weight * confidence
@@ -61,6 +65,7 @@ def calculate_scores(findings: dict) -> dict:
     # Normalize the overall score
     overall_score = (overall_score / total_weight) * 100 if total_weight else 0
     return {"overall_score": overall_score, "category_scores": category_scores}
+
 
 def clean_response(text: str) -> str:
     """
@@ -72,9 +77,9 @@ def clean_response(text: str) -> str:
 
 
 def call_llm_extract(policy_text: str) -> dict:
-    model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+    model = os.getenv("OPENROUTER_MODEL", "openrouter-1")
 
-    # Construct the prompt that explicitly asks Gemini to return only valid JSON
+    # Construct the prompt that explicitly asks OpenRouter to return only valid JSON
     prompt = f"""
     You are analyzing a privacy policy. Your task is to return **only valid JSON** with the exact structure specified below. Do **not** include any markdown, backticks, explanations, or non-JSON content such as metadata or thought signatures. Only return the JSON object in the following format:
 
@@ -99,20 +104,27 @@ def call_llm_extract(policy_text: str) -> dict:
     """
 
     try:
-        # Call Gemini with the constructed prompt
-        resp = client.models.generate_content(
+        # Use the OpenRouter class to interact with the API
+        openrouter_instance = openrouter.OpenRouter(api_key=API_KEY)  # Initialize OpenRouter instance
+        response = openrouter_instance.completion.create(  # Corrected method
             model=model,
-            contents=prompt
+            prompt=prompt,
+            max_tokens=1500  # Adjust the number of tokens as needed
         )
 
         # Log the raw response to check for unexpected text
-        print("Raw Response:", resp.text)
+        print("Raw Response from OpenRouter:", response)
 
         # Clean the response to remove non-JSON parts (like 'thought_signature')
-        response_clean = clean_response(resp.text)
+        response_clean = clean_response(response['choices'][0]['message']['content'])
 
         # Extract the response JSON
         findings = _extract_json(response_clean)
+
+        # Ensure 'findings' is part of the response
+        if 'findings' not in findings:
+            print(f"API Response (Missing findings): {response['choices'][0]['message']['content']}")
+            raise ValueError("'findings' not found in the API response.")
 
         # Calculate scores based on the findings
         scores = calculate_scores(findings)
@@ -121,8 +133,8 @@ def call_llm_extract(policy_text: str) -> dict:
         return {**findings, **scores}
 
     except Exception as e:
+        print("Error during analysis:", str(e))  # Print the error for debugging
         return {"error": str(e)}  # In case of any failure, return error details
-
 
 
 def normalize_flags(response: dict) -> dict:
@@ -136,19 +148,19 @@ def normalize_flags(response: dict) -> dict:
     }
 
     for category, flags in FLAGS.items():
-        for flag, label in flags.items():
+        for flag, flag_data in flags.items():
             # Check if the flag is present, if not, initialize it
-            flag_data = next((item for item in response["findings"] if item["flag"] == flag), None)
-            if flag_data is None:
+            flag_data_in_response = next((item for item in response["findings"] if item["flag"] == flag), None)
+            if flag_data_in_response is None:
                 # Flag not found, initialize with defaults
-                flag_data = {
+                flag_data_in_response = {
                     "flag": flag,
-                    "label": label,
+                    "label": flag_data["label"],  # Use the label from the updated FLAGS.py
                     "category": category,
                     "status": "unknown",
                     "confidence": 0.5,
                     "evidence_quote": ""
                 }
-            normalized_response["findings"].append(flag_data)
+            normalized_response["findings"].append(flag_data_in_response)
 
     return normalized_response
