@@ -8,42 +8,64 @@
 }
 
 /* Body Styling */
-body {
+body, html {
   font-family: 'Roboto', sans-serif;
-  background-color: #121212;
-  color: #e0e0e0;
+  background-color: #ffffff;  /* White background */
+  color: #121212;  /* Dark text color */
   display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+  height: 100%;  /* Ensure body takes full height of the viewport */
+  width: 100%;  /* Ensure body takes full width of the viewport */
+  overflow-x: hidden;  /* Prevent horizontal scrolling */
+  margin: 0;  /* Remove body margin */
 }
 
 /* Main Container */
 .container {
-  width: 100%;
-  max-width: 1200px;
+  width: 100%;  /* Full width */
+  max-width: 1200px;  /* Optional: Set a max-width to prevent the container from stretching too wide */
   padding: 24px;
-  background-color: #121212;
+  background-color: #ffffff;  /* White background */
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-  color: #fff;
+  color: #121212;  /* Dark text color */
+  flex-grow: 1;  /* Ensure container grows */
+  min-height: 100%;  /* Full height of the body */
+  position: relative;  /* Position relative to ensure correct flow */
+  overflow-y: auto;  /* Allow vertical scrolling */
+  height: 100%; /* Make sure container takes the full height */
+  margin: 0 auto; /* Center horizontally */
+  padding-top: 150px; /* Added space at the top of the container to prevent logo cutoff */
 }
 
-/* Title */
+/* Logo Styling */
+.logo {
+  width: 500px;  /* Set a smaller width for the logo */
+  height: auto;  /* Maintain aspect ratio */
+  margin-bottom: 10px; /* Reduce space below the logo */
+}
+
+/* Title Styling */
 h1 {
   font-size: 36px;
   margin-bottom: 16px;
+  color: #121212;  /* Dark text */
 }
 
+/* Product Description Styling */
 p {
   font-size: 18px;
   margin-top: 0;
   margin-bottom: 30px;
   text-align: center;
   opacity: 0.8;
+  max-width: 800px; /* Limit width to make the text more readable */
+  line-height: 1.5; /* Add line height for better readability */
+  color: #121212;  /* Dark text */
 }
 
 /* Flex Layout for Input Sections */
@@ -65,7 +87,7 @@ p {
 .policy-input {
   flex: 1;
   padding: 16px;
-  background-color: #1f1f1f;
+  background-color: #f5f5f5;  /* Light background for input */
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   width: 100%;
@@ -80,15 +102,15 @@ p {
   margin-bottom: 12px;
 }
 
-/* Textarea - Prevent Resize */
+/* Textarea Styling */
 textarea {
   width: 100%;
   padding: 16px;
   font-size: 16px;
   font-family: 'Roboto', sans-serif;
-  background-color: #333;
-  color: #e0e0e0;
-  border: 1px solid #444;
+  background-color: #ffffff;  /* White background for textarea */
+  color: #121212;  /* Dark text color */
+  border: 1px solid #ccc;  /* Light border color */
   border-radius: 8px;
   margin-bottom: 16px;
   resize: none;
@@ -99,6 +121,7 @@ textarea {
 textarea:focus {
   border-color: #007bff;
   outline: none;
+  padding-top: 50px;
 }
 
 /* Buttons Styling */
@@ -154,19 +177,29 @@ button.secondary:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* Output Area */
+/* Output Area Styling */
 .output {
   margin-top: 30px;
   padding: 24px;
-  background-color: #0b1020;
-  color: #dce6ff;
+  background-color: #ffffff;  /* White background for output */
+  color: #121212;  /* Dark text color */
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;  /* Ensure full width */
+  max-width: 100%;  /* Remove max-width restriction */
+  overflow-y: auto;  /* Scrollable area */
+  flex-grow: 1;  /* Allow the output to grow */
+  margin-bottom: 30px;  /* Some space before the Compare button */
+  box-sizing: border-box;  /* Ensures the width is calculated correctly */
+  background-color: #ffffff;  /* Ensure it's white */
 }
 
+/* Pre-formatted Text */
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
+  line-height: 1.5;  /* Add line height for better readability */
+  font-size: 14px;  /* Make the text size a bit smaller */
 }
 
 /* Mobile Responsiveness */
