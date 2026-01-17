@@ -21,33 +21,12 @@ def health():
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
-    # Call the LLM function for extracting the policy analysis
     llm_result = call_llm_extract(req.text)
-    
-    # Now format the LLM result into the findings format you need
-    findings = [
-        {
-            "flag": "shares_with_third_parties",
-            "label": "Shares data with third parties",
-            "category": "sharing",
-            "status": "true",  # This will come from the LLM's analysis
-            "confidence": 0.95,  # This can be derived from the LLM's output
-            "evidence_quote": "This site shares data with affiliates.",  # Extracted from LLM
-            "url": req.url
-        },
-        # Add other flags similarly from the LLM response
-    ]
-    
-    return {
-        "overall_score": 70.5,  # This will be calculated later, but for now, it's static
-        "category_scores": {
-            "sharing": 85,
-            "legal": 50,
-            "sensitive": 60
-        },
-        "findings": findings,
-        "meta": {"url": req.url}
-    }
+
+    # TEMP: just return LLM result directly first
+    # Once stable, you’ll map/validate it into your expected schema.
+    llm_result["meta"] = {"url": req.url}
+    return llm_result
 
 @app.post("/api/compare")
 def compare(req: CompareRequest) -> Dict[str, Any]:
