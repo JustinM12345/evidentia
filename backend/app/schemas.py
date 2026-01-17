@@ -14,6 +14,8 @@ class AnalyzeResponse(BaseModel):
     overall_score: float
     category_scores: Dict[str, float]
     findings: List[Finding]
+    meta: Optional[Dict[str, Any]] = None  # Add meta field to store additional info like URL
+
 
 class CompareResponse(BaseModel):
     reportA: AnalyzeResponse
