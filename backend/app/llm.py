@@ -1,25 +1,53 @@
-import openrouter
 import os
+import json
+import re
 from dotenv import load_dotenv
+from google import genai
 
-# Load environment variables from the .env file
 load_dotenv()
 
-# Get OpenRouter API key from environment variables
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+if not API_KEY:
+    raise ValueError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in .env")
 
-# Check if the API key is loaded correctly
-if OPENROUTER_API_KEY is None:
-    raise ValueError("OpenRouter API key is not set in the .env file")
+client = genai.Client(api_key=API_KEY)
 
-def call_llm_extract(text: str) -> dict:
-    # Call the LLM to analyze the policy text
-    try:
-        result = openrouter.call(
-            model="openai/gpt-4o-mini",  # You can change this model if needed
-            prompt=text,
-            api_key=OPENROUTER_API_KEY
-        )
-        return result
-    except Exception as e:
-        return {"error": str(e)}  # Return error message if the LLM call fails
+def _extract_json(text: str) -> dict:
+    """
+    Gemini sometimes wraps JSON in extra text. This pulls the first {...} block.
+    """
+    m = re.search(r"\{.*\}", text, flags=re.DOTALL)
+    if not m:
+        raise ValueError(f"No JSON found in model response: {text[:400]}")
+    return json.loads(m.group(0))
+
+def call_llm_extract(policy_text: str) -> dict:
+    model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+
+    prompt = f"""
+Return ONLY valid JSON (no markdown, no backticks) with this shape:
+{{
+  "overall_score": number,
+  "category_scores": {{}},
+  "findings": [
+    {{
+      "flag": string,
+      "label": string,
+      "category": string,
+      "status": "true"|"false"|"unknown",
+      "confidence": number,
+      "evidence_quote": string
+    }}
+  ]
+}}
+
+Policy text:
+{policy_text}
+""".strip()
+
+    resp = client.models.generate_content(
+        model=model,
+        contents=prompt
+    )
+
+    return _extract_json(resp.text)
