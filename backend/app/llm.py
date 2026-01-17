@@ -12,6 +12,7 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
+
 def _extract_json(text: str) -> dict:
     """
     Gemini sometimes wraps JSON in extra text. This pulls the first {...} block.
