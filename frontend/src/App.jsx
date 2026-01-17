@@ -39,8 +39,13 @@ export default function App() {
 
   return (
     <div className="container">
-      <h1>Evidentia</h1>
-      <p>Paste two policies to generate an evidence-backed checklist and comparison.</p>
+      {/* Logo as Header */}
+      <img src="/logo.png" alt="Evidentia Logo" className="logo" />
+
+
+      <p>
+        Evidentia empowers you to analyze legal terms and conditions by identifying critical data that companies may collect when you agree to their policies. You can also compare two policies side-by-side, helping you spot key differences and similarities to make more informed decisions about your privacy and data security.
+      </p>
 
       <div className="policy-container">
         <PolicyInput
