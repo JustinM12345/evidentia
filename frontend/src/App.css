@@ -14,14 +14,14 @@ body, html {
   color: #121212;  /* Dark text color */
   display: flex;
   justify-content: center; /* Center horizontally */
-  align-items: center; /* Center vertically */
+  align-items: flex-start; /* Align content at the top */
   height: 100%;  /* Ensure body takes full height of the viewport */
   width: 100%;  /* Ensure body takes full width of the viewport */
   overflow-x: hidden;  /* Prevent horizontal scrolling */
   margin: 0;  /* Remove body margin */
 }
 
-/* Main Container */
+/* Container Styling */
 .container {
   width: 100%;  /* Full width */
   max-width: 1200px;  /* Optional: Set a max-width to prevent the container from stretching too wide */
@@ -39,7 +39,6 @@ body, html {
   overflow-y: auto;  /* Allow vertical scrolling */
   height: 100%; /* Make sure container takes the full height */
   margin: 0 auto; /* Center horizontally */
-  padding-top: 150px; /* Added space at the top of the container to prevent logo cutoff */
 }
 
 /* Logo Styling */
@@ -121,7 +120,6 @@ textarea {
 textarea:focus {
   border-color: #007bff;
   outline: none;
-  padding-top: 50px;
 }
 
 /* Buttons Styling */
