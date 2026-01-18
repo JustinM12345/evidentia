@@ -30,41 +30,62 @@ def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
 
 @app.post("/api/compare")
 def compare(req: CompareRequest) -> Dict[str, Any]:
-    # Call analyze for both A and B
+    # 1. Analyze both policies
     reportA = analyze(AnalyzeRequest(text=req.textA, url=req.urlA))
     reportB = analyze(AnalyzeRequest(text=req.textB, url=req.urlB))
     
-    # Initialize comparison data
-    added = []
-    removed = []
-    changed = []
-    deltas = {"overall_score": reportB["overall_score"] - reportA["overall_score"]}
+    # 2. Extract Findings Maps
+    findingsA = {f["flag"]: f for f in reportA["findings"]}
+    findingsB = {f["flag"]: f for f in reportB["findings"]}
     
-    # Compare findings (flags) between Policy A and Policy B
-    for flagA, flagB in zip(reportA["findings"], reportB["findings"]):
-        if flagA["flag"] == flagB["flag"]:  # Ensure comparing the same flags
-            # Check if status has changed
-            if flagA["status"] != flagB["status"]:
-                changed.append(flagA["flag"])
-            # Check if confidence has changed
-            elif flagA["confidence"] != flagB["confidence"]:
-                changed.append(flagA["flag"])
-            # If the flag is true in A but missing in B, it's removed
-            if flagA["status"] == "true" and flagB["status"] != "true":
-                removed.append(flagA["flag"])
-            # If the flag is true in B but missing in A, it's added
-            elif flagB["status"] == "true" and flagA["status"] != "true":
-                added.append(flagB["flag"])
-        else:
-            # In case flags are not the same, we can mark them as changed
-            changed.append(flagA["flag"])
+    # 3. Categorize Risks
+    common_risks = []
+    unique_to_A = []
+    unique_to_B = []
+
+    # Get all unique flag keys
+    all_flags = set(findingsA.keys()).union(set(findingsB.keys()))
+
+    for flag_id in all_flags:
+        fA = findingsA.get(flag_id)
+        fB = findingsB.get(flag_id)
+
+        # FIX: Consider a risk "active" if it is TRUE or UNKNOWN (since unknown adds to score)
+        is_risk_A = fA and fA["status"] in ["true", "unknown"]
+        is_risk_B = fB and fB["status"] in ["true", "unknown"]
+
+        if is_risk_A and is_risk_B:
+            # Shared Risk
+            common_risks.append(fA) 
+        elif is_risk_A and not is_risk_B:
+            # Unique to A
+            unique_to_A.append(fA)
+        elif is_risk_B and not is_risk_A:
+            # Unique to B
+            unique_to_B.append(fB)
+
+    # 4. Determine Verdict
+    scoreA = reportA["overall_score"]
+    scoreB = reportB["overall_score"]
     
+    verdict = "Tie"
+    winner = "Tie"
+    if scoreA > scoreB:
+        verdict = "Policy B is Safer"
+        winner = "B"
+    elif scoreB > scoreA:
+        verdict = "Policy A is Safer"
+        winner = "A"
+
     return {
         "reportA": reportA,
         "reportB": reportB,
-        "deltas": deltas,
-        "added": added,
-        "removed": removed,
-        "changed": changed
+        "comparison": {
+            "verdict": verdict,
+            "winner": winner,
+            "score_diff": round(abs(scoreA - scoreB), 2),
+            "common_risks": common_risks,
+            "unique_to_A": unique_to_A,
+            "unique_to_B": unique_to_B
+        }
     }
-

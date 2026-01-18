@@ -223,3 +223,113 @@ pre {
     max-width: none;
   }
 }
+
+/* Comparison Container */
+.comparison-container {
+  width: 100%;
+  margin-top: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  padding: 24px;
+}
+
+/* Verdict Banner */
+.verdict-banner {
+  text-align: center;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  color: #27ae60;
+}
+.verdict-banner h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+/* Score Cards */
+.score-cards {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.score-card {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  min-width: 150px;
+  border: 2px solid transparent;
+}
+
+.score-card.winner {
+  border-color: #2ecc71;
+  background-color: #f0fff4;
+}
+
+.big-score {
+  font-size: 42px;
+  font-weight: 800;
+  color: #2c3e50;
+}
+
+.vs-badge {
+  font-weight: bold;
+  color: #aaa;
+  font-size: 18px;
+}
+
+/* Details Section (3 Columns) */
+.details-section {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.detail-column {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.detail-column.center-col {
+  background: #fcfcfc;
+  border-style: dashed;
+}
+
+.detail-column h4 {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 16px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.danger-text { color: #e74c3c; }
+.warning-text { color: #f39c12; }
+.good-text { color: #2ecc71; text-align: center; font-weight: bold; }
+
+/* List Styles */
+.detail-column ul {
+  list-style: none;
+  padding: 0;
+}
+
+.detail-column li {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 14px;
+}
+.detail-column li:last-child { border-bottom: none; }
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+  .details-section {
+    flex-direction: column;
+  }
+}
