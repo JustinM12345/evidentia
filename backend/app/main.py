@@ -113,11 +113,10 @@ def compare(req: CompareRequest) -> Dict[str, Any]:
     print("\n--- NEW COMPARISON REQUEST ---", flush=True)
     processed_A = process_input(req.textA)
     processed_B = process_input(req.textB)
-    
-    comparison_result = call_llm_compare_side_by_side(processed_A, processed_B)
-    
-    reportA = comparison_result["reportA"]
-    reportB = comparison_result["reportB"]
+
+    # NEW: Analyze them separately instead of one big comparison schema
+    reportA = call_llm_extract(processed_A)
+    reportB = call_llm_extract(processed_B)
     
     findingsA = {f["flag"]: f for f in reportA["findings"]}
     findingsB = {f["flag"]: f for f in reportB["findings"]}
