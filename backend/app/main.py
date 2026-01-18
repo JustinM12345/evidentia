@@ -52,7 +52,7 @@ def fetch_from_yellowcake(target_url: str) -> str:
     
     payload = {
         "url": target_url,
-        "prompt": "Extract the full Terms of Service or Privacy Policy text. Ignore navigation."
+        "prompt": "Extract the full Privacy Policy text"
     }
 
     try:
@@ -64,7 +64,7 @@ def fetch_from_yellowcake(target_url: str) -> str:
             text = data.get("text") or data.get("content") or data.get("data") or ""
             
             # PROTECT AGAINST BLOCKS: If the text is too short, it's a failed scrape
-            if len(str(text).strip()) < 400:
+            if len(str(text).strip()) < 200:
                 print(f"⚠️ Scraping failed: Text too short ({len(str(text))} chars)", flush=True)
                 raise HTTPException(status_code=400, detail="Error: SITE_PROTECTED")
             
