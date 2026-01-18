@@ -52,7 +52,7 @@ def fetch_from_yellowcake(target_url: str) -> str:
     
     payload = {
         "url": target_url,
-        "prompt": "Extract the full Privacy Policy text"
+        "prompt": "privacy policy"
     }
 
     try:
