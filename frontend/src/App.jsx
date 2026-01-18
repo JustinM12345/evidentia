@@ -110,22 +110,23 @@ export default function App() {
       <div className="instruction-box">
         <h2 className="text-center text-xl font-bold mb-4">How to Analyze Your Privacy</h2>
         <p className="text-center mb-6">
-          Evidentia empowers you to uncover hidden risks in legal terms. To ensure the most accurate 
-          analysis and bypass website protections, please use the manual copy method below.
+          To ensure 100% accuracy, Evidentia uses a 
+          <b> "Paste-Everything"</b> method. This bypasses website trackers and ensures our AI 
+          analyzes the exact text you are agreeing to.
         </p>
         
         <div className="steps-grid">
           <div className="step-item">
             <span className="step-number">1</span>
-            <p>Open the Terms or Privacy policy you wish to analyze.</p>
+            <p>Open the policy in a new tab.</p>
           </div>
           <div className="step-item">
             <span className="step-number">2</span>
-            <p>Press <b>Ctrl + A</b> to select all text, then <b>Ctrl + C</b> to copy.</p>
+            <p>Use <b>Ctrl + A</b> then <b>Ctrl + C</b> to copy the text.</p>
           </div>
           <div className="step-item">
             <span className="step-number">3</span>
-            <p>Paste (<b>Ctrl + V</b>) the text into the boxes below and click Analyze or Compare.</p>
+            <p>Paste into the boxes below to generate your risk report.</p>
           </div>
         </div>
       </div>
