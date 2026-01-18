@@ -57,12 +57,17 @@ Object.values(MASTER_FLAGS).forEach(category => {
   Object.assign(ALL_FLAGS_FLAT, category);
 });
 
-// --- API HELPER ---
+// --- API HELPER (FIXED) ---
 async function postJSON(path, body, setLoading, setError, setResult) {
   setLoading(true);
   setError('');
+
+  // --- THE FIX IS HERE ---
+  const BACKEND_URL = "https://evidentia.onrender.com"; 
+
   try {
-    const res = await fetch(path, {
+    // We add BACKEND_URL before the path
+    const res = await fetch(`${BACKEND_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
