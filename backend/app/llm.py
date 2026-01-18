@@ -3,7 +3,7 @@ import json
 import re
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types # Import types for explicit checking
+# Keep your working imports
 from backend.app.flags import FLAGS
 from backend.app.weights import FLAG_WEIGHTS
 
@@ -15,59 +15,69 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
+# 1. PRE-CALCULATE THE MAX SCORE (Sum of all possible bad weights)
+# This fixes the "50% score" bug. Now, 0 findings = 0/100 score.
+TOTAL_POSSIBLE_SCORE = sum(FLAG_WEIGHTS.values())
+
+def get_valid_flags():
+    valid_ids = []
+    for category, flags in FLAGS.items():
+        valid_ids.extend(flags.keys())
+    return valid_ids
+
+VALID_FLAG_IDS = get_valid_flags()
+
 
 def _extract_json(text: str) -> dict:
-    """
-    Extracts the first valid JSON block.
-    """
     try:
-        # Search for valid JSON block (looking for the outermost curly braces)
         m = re.search(r"\{.*\}", text, flags=re.DOTALL)
-        if m:
-            return json.loads(m.group(0))
-        else:
-            # Fallback: sometimes LLMs return just the list [ ... ]
-            m_list = re.search(r"\[.*\]", text, flags=re.DOTALL)
-            if m_list:
-                return {"findings": json.loads(m_list.group(0))}
-            
-            raise ValueError(f"No valid JSON found in response: {text[:200]}...")
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to decode JSON response: {str(e)}")
+        if m: return json.loads(m.group(0))
+        m_list = re.search(r"\[.*\]", text, flags=re.DOTALL)
+        if m_list: return {"findings": json.loads(m_list.group(0))}
+        raise ValueError("No valid JSON found")
+    except Exception as e:
+        raise ValueError(f"JSON Decode Error: {str(e)}")
 
 
 def calculate_scores(findings: list) -> dict:
-    """
-    Calculates the overall score and category scores based on flag weights.
-    """
     category_scores = {category: 0 for category in FLAGS.keys()}
     overall_score = 0
-    total_weight = 0
+    
+    # We no longer track "total_weight" of findings. 
+    # We compare against the TOTAL_POSSIBLE_SCORE of the entire system.
 
     for finding in findings:
         flag = finding.get('flag')
         status = finding.get('status')
         confidence = finding.get('confidence', 0)
-        category_key = finding.get('category') # This should match keys in FLAGS
+        category_key = finding.get('category')
 
-        # 1. Get weight
+        if flag not in FLAG_WEIGHTS:
+            continue
+
         weight = FLAG_WEIGHTS.get(flag, 0)
 
-        # 2. Update Scores
+        # 2. SCORING LOGIC UPDATE
         if status == "true":
-            overall_score += weight
-            # Only add to category score if we can map it back to a valid category
+            # Full penalty for confirmed risks
+            score_impact = weight * confidence
+            overall_score += score_impact
             if category_key in category_scores:
-                category_scores[category_key] += weight * confidence
-            
-            total_weight += weight
-
+                category_scores[category_key] += score_impact
+                
         elif status == "unknown":
-            overall_score += weight * 0.5
-            total_weight += weight
+            # Reduced penalty (25%) for ambiguous text, instead of 50%
+            # If it's not mentioned at all, the AI won't return it (status=false), so 0 penalty.
+            score_impact = weight * 0.25
+            overall_score += score_impact
 
-    # Normalize
-    final_score = (overall_score / total_weight) * 100 if total_weight > 0 else 0
+    # 3. NORMALIZE SCORE
+    # This prevents the score from spiking just because one small thing was found.
+    # Score is now: (Risk Found / Total Possible Risk) * 100
+    if TOTAL_POSSIBLE_SCORE > 0:
+        final_score = (overall_score / TOTAL_POSSIBLE_SCORE) * 100
+    else:
+        final_score = 0
     
     return {
         "overall_score": round(final_score, 2), 
@@ -75,91 +85,58 @@ def calculate_scores(findings: list) -> dict:
     }
 
 
-def clean_response(response_text):
-    # Remove markdown code blocks if present
-    cleaned = response_text.replace("```json", "").replace("```", "")
-    # Remove thought signatures
-    cleaned = re.sub(r'"thought_signature":\s*"[^"]+"', '', cleaned)
-    return cleaned
-
-
 def call_llm_extract(policy_text: str) -> dict:
     model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash") 
 
-    # UPDATED PROMPT: Explicitly asking for a list wrapped in a "findings" key
+    # 4. PROMPT UPDATE: "Silence = Safe"
     prompt = f"""
     You are an expert legal AI. Analyze the following privacy policy text.
-    Identify relevant data collection, sharing, rights, and risk flags based on the text.
-
-    Return a JSON object with a single key "findings" which contains a list of objects.
     
-    The JSON structure must be exactly this:
+    Your Goal: Identify CONFIRMED risks from the valid list below.
+    
+    STRICT RULES:
+    1. ONLY use flag IDs from this list: {json.dumps(VALID_FLAG_IDS)}
+    2. If a flag is NOT explicitly mentioned in the text, assume it is FALSE.
+    3. DO NOT return "false" flags in the JSON list. Only return "true" or "unknown".
+    4. Only use "unknown" if the text is genuinely ambiguous or contradictory. If it's just missing, it is FALSE.
+
+    Return a JSON object:
     {{
         "findings": [
             {{
-                "flag": "<exact_flag_id_from_known_list>",         
+                "flag": "<valid_id>",         
                 "label": "<human_readable_label>",     
-                "category": "<category_name>", 
-                "status": "true" | "false" | "unknown", 
-                "confidence": <float between 0 and 1>,   
-                "evidence_quote": "<short quote verifying the finding>"
-            }},
-            ...
+                "category": "<category_key>", 
+                "status": "true" | "unknown", 
+                "confidence": <float 0-1>,   
+                "evidence_quote": "<quote>"
+            }}
         ]
     }}
-
-    IMPORTANT: 
-    - Only output valid JSON. 
-    - Do not include markdown formatting.
-    - If a flag is not explicitly mentioned, mark status as "unknown" or "false".
     
     Policy Text:
     {policy_text[:30000]} 
     """
 
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt
-        )
-
-        # Robust extraction of text
-        if hasattr(response, 'text'):
-            raw_text = response.text
-        else:
-            # Fallback for different SDK versions/response types
-            print(f"Debug - Response Type: {type(response)}")
-            raw_text = str(response)
-
-        if not raw_text:
-            raise ValueError("Empty response from Gemini.")
-
-        cleaned_text = clean_response(raw_text)
-        print("Cleaned Response Snippet:", cleaned_text[:200]) # Debug log
-
-        # Parse JSON
+        response = client.models.generate_content(model=model, contents=prompt)
+        
+        raw_text = response.text if hasattr(response, 'text') else str(response)
+        cleaned_text = raw_text.replace("```json", "").replace("```", "")
+        
         parsed_json = _extract_json(cleaned_text)
-
-        # Normalization: Ensure we have a list of findings
         findings_list = parsed_json.get("findings", [])
+        
         if not findings_list and isinstance(parsed_json, list):
-            findings_list = parsed_json # specific fallback if AI returned just a list
+            findings_list = parsed_json
 
-        # Calculate scores
         scores = calculate_scores(findings_list)
 
-        # Return combined dict
         return {
             "findings": findings_list,
             **scores
         }
 
     except Exception as e:
-        print(f"Error in call_llm_extract: {str(e)}")
-        # Return a safe empty structure so the frontend doesn't crash completely
-        return {
-            "findings": [],
-            "overall_score": 0,
-            "category_scores": {},
-            "error": str(e)
-        }
+        print(f"Error: {str(e)}")
+        return {"findings": [], "overall_score": 0, "category_scores": {}, "error": str(e)}
