@@ -51,37 +51,36 @@ const MASTER_FLAGS = {
   },
 };
 
-// Flatten for easy iteration in the view
 const ALL_FLAGS_FLAT = {};
 Object.values(MASTER_FLAGS).forEach(category => {
   Object.assign(ALL_FLAGS_FLAT, category);
 });
 
-// --- API HELPER (FIXED) ---
+// --- API HELPER ---
 async function postJSON(path, body, setLoading, setError, setResult) {
   setLoading(true);
   setError('');
+  setResult(null);
 
-  // --- THE FIX IS HERE ---
-  const BACKEND_URL = "https://evidentia.onrender.com"; 
+  // Note: Change this to http://localhost:8000 if testing locally
+  const BACKEND_URL = "http://localhost:8000"; 
 
   try {
-    // We add BACKEND_URL before the path
     const res = await fetch(`${BACKEND_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
+    const data = await res.json();
+
     if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || `Request failed: ${res.status}`);
+      throw new Error(data.detail || "An unexpected error occurred.");
     }
 
-    const data = await res.json();
     setResult(data);
   } catch (e) {
-    setError(e.message || 'Something went wrong');
+    setError(e.message);
     setResult(null);
   } finally {
     setLoading(false);
@@ -100,11 +99,17 @@ export default function App() {
     <div className="container">
       <img src="/logo.png" alt="Evidentia Logo" className="logo" />
 
-      <p>
-        Evidentia empowers you to analyze legal terms and conditions by identifying critical data that companies may collect when you agree to their policies. You can also compare two policies side-by-side, helping you spot key differences and similarities to make more informed decisions about your privacy and data security.
+      <p className="text-center text-gray-600 text-3xl font-serif font-bold mb-12 max-w-2xl mx-auto">
+        Presenting Facts So Clearly That The Truth Becomes Impossible To Ignore.
       </p>
 
-      {/* Inputs */}
+      <div className="instructions-panel" style={{ textAlign: 'center', marginBottom: '30px', background: '#f0f4f8', padding: '20px', borderRadius: '12px' }}>
+        <h2 style={{ margin: '0 0 10px 0' }}>Manual Analysis Mode</h2>
+        <p style={{ margin: 0 }}>
+          Go to your target website, press <b>Ctrl+A</b> then <b>Ctrl+C</b>, and paste the text into the boxes below.
+        </p>
+      </div>
+
       <div className="policy-container">
         <PolicyInput
           label="Policy A"
@@ -122,15 +127,13 @@ export default function App() {
         />
       </div>
 
-      {loading && <span className="loading-text">Running…</span>}
-
-      <div className="button-container">
+      <div className="button-container" style={{ marginTop: '20px' }}>
         <button
           className="primary"
-          disabled={loading || textA.trim().length < 10 || textB.trim().length < 10}
+          disabled={loading || textA.trim().length < 50 || textB.trim().length < 50}
           onClick={() => postJSON('/api/compare', { textA, textB }, setLoading, setError, setResult)}
         >
-          Compare
+          {loading ? "Analyzing..." : "Compare Policies"}
         </button>
 
         <button
@@ -143,13 +146,12 @@ export default function App() {
             setError('');
           }}
         >
-          Clear
+          Clear All
         </button>
       </div>
 
-      {error && <ErrorNotification error={error} />}
+      {error && <div className="error-box" style={{ color: 'red', marginTop: '20px', fontWeight: 'bold' }}>{error}</div>}
 
-      {/* RESULT LOGIC */}
       {result && (
         result.comparison ? (
           <ComparisonView result={result} />
@@ -161,7 +163,7 @@ export default function App() {
   );
 }
 
-// --- SUB-COMPONENTS ---
+// --- COMPONENTS ---
 
 function PolicyInput({ label, value, onChange, loading, onAnalyze }) {
   return (
@@ -170,12 +172,12 @@ function PolicyInput({ label, value, onChange, loading, onAnalyze }) {
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={`Paste ${label} here...`}
+        placeholder={`Paste ${label} text here...`}
         rows={14}
         disabled={loading}
       />
       <button
-        disabled={loading || value.trim().length < 10}
+        disabled={loading || value.trim().length < 50}
         onClick={onAnalyze}
       >
         Analyze {label}
@@ -184,35 +186,16 @@ function PolicyInput({ label, value, onChange, loading, onAnalyze }) {
   );
 }
 
-function ErrorNotification({ error }) {
-  return <div className="error-notification"><strong>Error:</strong> {error}</div>;
-}
-
-// --- VIEW 1: SINGLE ANALYSIS (Score Moved to Top) ---
 function SingleAnalysisView({ result }) {
   const { findings, overall_score } = result;
-
   const findingsMap = {};
-  findings.forEach(f => {
-    findingsMap[f.flag] = f;
-  });
+  findings.forEach(f => { findingsMap[f.flag] = f; });
 
-  // Determine Score Color
-  let scoreColor = '#2ecc71'; // Green
-  let scoreLabel = 'Safe';
-  if (overall_score > 70) {
-    scoreColor = '#e74c3c'; // Red
-    scoreLabel = 'Dangerous';
-  } else if (overall_score > 30) {
-    scoreColor = '#f1c40f'; // Yellow
-    scoreLabel = 'Moderate Risk';
-  }
+  let scoreColor = overall_score > 70 ? '#e74c3c' : (overall_score > 30 ? '#f1c40f' : '#2ecc71');
+  let scoreLabel = overall_score > 70 ? 'Dangerous' : (overall_score > 30 ? 'Moderate Risk' : 'Safe');
 
   return (
     <div className="single-view-container">
-      <h2>Policy Analysis</h2>
-      
-      {/* 1. SCORE HEADER (Moved Here) */}
       <div className="score-header" style={{ borderBottom: `4px solid ${scoreColor}` }}>
         <div className="score-circle" style={{ borderColor: scoreColor, color: scoreColor }}>
           {Math.round(overall_score)}
@@ -223,35 +206,18 @@ function SingleAnalysisView({ result }) {
         </div>
       </div>
 
-      {/* 2. THE CHECKLIST */}
       <div className="checklist-container">
         {Object.entries(ALL_FLAGS_FLAT).map(([flagId, label]) => {
           const finding = findingsMap[flagId];
           const isFound = finding && finding.status === 'true';
-          const isUnknown = finding && finding.status === 'unknown';
-
-          let boxClass = 'box-green';
-          let statusText = 'Not Found';
-          let description = 'No evidence of this risk was found in the text.';
-
-          if (isFound) {
-            boxClass = 'box-red';
-            statusText = 'Detected';
-            description = finding.evidence_quote ? `"${finding.evidence_quote}"` : 'Explicitly mentioned in the policy.';
-          } else if (isUnknown) {
-            boxClass = 'box-yellow';
-            statusText = 'Unclear';
-            description = 'The policy language is ambiguous regarding this term.';
-          }
-
           return (
             <div key={flagId} className="checklist-row">
-              <div className={`status-box ${boxClass}`}>
+              <div className={`status-box ${isFound ? 'box-red' : 'box-green'}`}>
                 <strong>{label}</strong>
-                <span className="status-badge">{statusText}</span>
+                <span className="status-badge">{isFound ? 'Detected' : 'Not Found'}</span>
               </div>
               <div className="description-box">
-                {description}
+                {isFound ? `"${finding.evidence_quote}"` : 'No evidence found.'}
               </div>
             </div>
           );
@@ -261,13 +227,11 @@ function SingleAnalysisView({ result }) {
   );
 }
 
-// --- VIEW 2: COMPARISON ---
 function ComparisonView({ result }) {
   const { reportA, reportB, comparison } = result;
-  
   return (
     <div className="comparison-container">
-      <div className="verdict-banner" style={{ background: comparison.winner !== 'Tie' ? '#e6fffa' : '#f5f5f5', border: '2px solid #2ecc71' }}>
+      <div className="verdict-banner" style={{ border: '2px solid #2ecc71', background: '#f0fff4' }}>
         <h2>🏆 Verdict: {comparison.verdict}</h2>
         <p>Difference in Risk Score: {comparison.score_diff}</p>
       </div>
@@ -276,34 +240,26 @@ function ComparisonView({ result }) {
         <div className={`score-card ${comparison.winner === 'A' ? 'winner' : ''}`}>
           <h3>Policy A</h3>
           <div className="big-score">{Math.round(reportA.overall_score)}</div>
-          <span className="label">Risk Score</span>
         </div>
         <div className="vs-badge">VS</div>
         <div className={`score-card ${comparison.winner === 'B' ? 'winner' : ''}`}>
           <h3>Policy B</h3>
           <div className="big-score">{Math.round(reportB.overall_score)}</div>
-          <span className="label">Risk Score</span>
         </div>
       </div>
 
       <div className="details-section">
         <div className="detail-column">
-          <h4 className="danger-text">⚠️ Risks Unique to Policy A</h4>
-          {comparison.unique_to_A.length === 0 ? <p className="good-text">No unique risks!</p> : (
-            <ul>{comparison.unique_to_A.map((f, i) => <li key={i} title={f.evidence_quote}><strong>{f.label}</strong></li>)}</ul>
-          )}
+          <h4 className="danger-text">⚠️ Unique to A</h4>
+          <ul>{comparison.unique_to_A.map((f, i) => <li key={i}><strong>{f.label}</strong></li>)}</ul>
         </div>
         <div className="detail-column center-col">
-          <h4 className="warning-text">⚖️ Shared Risks (Both)</h4>
-          {comparison.common_risks.length === 0 ? <p>No shared risks.</p> : (
-            <ul>{comparison.common_risks.map((f, i) => <li key={i}>{f.label}</li>)}</ul>
-          )}
+          <h4 className="warning-text">⚖️ Shared Risks</h4>
+          <ul>{comparison.common_risks.map((f, i) => <li key={i}>{f.label}</li>)}</ul>
         </div>
         <div className="detail-column">
-          <h4 className="danger-text">⚠️ Risks Unique to Policy B</h4>
-          {comparison.unique_to_B.length === 0 ? <p className="good-text">No unique risks!</p> : (
-            <ul>{comparison.unique_to_B.map((f, i) => <li key={i} title={f.evidence_quote}><strong>{f.label}</strong></li>)}</ul>
-          )}
+          <h4 className="danger-text">⚠️ Unique to B</h4>
+          <ul>{comparison.unique_to_B.map((f, i) => <li key={i}><strong>{f.label}</strong></li>)}</ul>
         </div>
       </div>
     </div>
