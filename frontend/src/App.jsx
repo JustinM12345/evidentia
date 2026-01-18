@@ -62,26 +62,28 @@ async function postJSON(path, body, setLoading, setError, setResult) {
   setLoading(true);
   setError('');
 
-  // --- THE FIX IS HERE ---
   const BACKEND_URL = "https://evidentia.onrender.com"; 
 
   try {
-    // We add BACKEND_URL before the path
     const res = await fetch(`${BACKEND_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
+    const data = await res.json();
+
     if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || `Request failed: ${res.status}`);
+      // If the backend sent our specific Error message
+      if (data.detail && data.detail.includes("Error")) {
+        throw new Error("SITE_PROTECTED");
+      }
+      throw new Error(data.detail || `Request failed: ${res.status}`);
     }
 
-    const data = await res.json();
     setResult(data);
   } catch (e) {
-    setError(e.message || 'Something went wrong');
+    setError(e.message); // This will now be "SITE_PROTECTED" or the system error
     setResult(null);
   } finally {
     setLoading(false);
@@ -114,9 +116,9 @@ export default function App() {
         2. Comparing Two Policies <br />
         <br />
         <b>Checking One Policy</b><br />
-        Simply copy and paste the URL/Link of the terms and conditions you are trying to analyze <b>OR</b> Go to the site and perform the simultanous commands <b>Ctrl + A</b> --&gt; <b>Ctrl + C</b>, then reuturn to this website and perform <b>Ctrl + V</b> in the text box.<br />
+        Simply copy and paste the URL/Link of the terms and conditions you are trying to analyze <b>OR</b> Go to the site and perform the simultanous commands <b>Ctrl + A</b> --&gt; <b>Ctrl + C</b>, then return to this website and perform <b>Ctrl + V</b> in the text box.<br />
         <b>Comparing Two Policies</b><br />
-        Simply copy the URL/Link of the two terms and conditions you are trying to analyze and paste them into their respective boxes <b>OR</b> Go to both websites and perform the simultanous commands <b>Ctrl + A</b> --&gt; <b>Ctrl + C</b><br />, then reuturn to this website and perform <b>Ctrl + V</b> into their respective boxes.
+        Simply copy the URL/Link of the two terms and conditions you are trying to analyze and paste them into their respective boxes <b>OR</b> Go to both websites and perform the simultanous commands <b>Ctrl + A</b> --&gt; <b>Ctrl + C</b><br />, then return to this website and perform <b>Ctrl + V</b> into their respective boxes.
       </p>
 
       {/* Inputs */}
@@ -200,9 +202,27 @@ function PolicyInput({ label, value, onChange, loading, onAnalyze }) {
 }
 
 function ErrorNotification({ error }) {
+  // If the error message from the backend contains "Error", we show the custom alert
+  if (error === "SITE_PROTECTED" || (error && error.includes("Error:"))) {
+    return (
+      <div className="error-notification" style={{ backgroundColor: '#fff5f5', border: '2px solid #e74c3c', color: '#c53030', padding: '20px', borderRadius: '8px', marginTop: '20px' }}>
+        <strong>🛑 Access Issue Detected</strong>
+        <p style={{ margin: '10px 0 0 0' }}>
+          {error.includes("200 characters") 
+            ? "Program was blocked when reading terms and conditions OR provided policy was less than 200 characters."
+            : "The program was blocked when attempting to read the terms and conditions."}
+          <br /><br />
+          To analyze this policy, please:
+          <br /><strong>1. Visit the URL directly in your browser</strong>
+          <br /><strong>2. Use Ctrl+A and Ctrl+C to copy the text manually</strong>
+          <br /><strong>3. Paste the text back into the input box here.</strong>
+        </p>
+      </div>
+    );
+  }
+
   return <div className="error-notification"><strong>Error:</strong> {error}</div>;
 }
-
 // --- VIEW 1: SINGLE ANALYSIS (Score Moved to Top) ---
 function SingleAnalysisView({ result }) {
   const { findings, overall_score } = result;

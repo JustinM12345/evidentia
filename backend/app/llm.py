@@ -154,10 +154,10 @@ def call_llm_extract(policy_text: str) -> dict:
     clean_text = clean_noise(policy_text)
 
     # Cache Check
-    text_hash = hashlib.md5(clean_text.encode('utf-8')).hexdigest()
-    if text_hash in RESULT_CACHE:
-        print("✅ Cache Hit (Single)")
-        return RESULT_CACHE[text_hash]
+    # text_hash = hashlib.md5(clean_text.encode('utf-8')).hexdigest()
+    # if text_hash in RESULT_CACHE:
+    #     print("✅ Cache Hit (Single)")
+    #     return RESULT_CACHE[text_hash]
 
     return _internal_analyze_strict(clean_text, text_hash)
 

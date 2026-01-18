@@ -41,7 +41,7 @@ def health():
 def fetch_from_yellowcake(target_url: str) -> str:
     if not YELLOWCAKE_API_KEY:
         print("⚠️ Warning: No Yellowcake API Key found.", flush=True)
-        return f"Error: Yellowcake API Key missing."
+        return "Error: Yellowcake API Key missing."
 
     print(f"🍰 Calling Yellowcake for: {target_url}", flush=True)
     
@@ -61,41 +61,52 @@ def fetch_from_yellowcake(target_url: str) -> str:
         
         if response.status_code == 200:
             data = response.json()
-            # Try to grab text from common keys
             text = data.get("text") or data.get("content") or data.get("data") or ""
+            
+            # --- NEW LENGTH VALIDATION ---
+            if len(str(text).strip()) < 200:
+                print(f"⚠️ Scraping failed: Text too short ({len(str(text))} chars)", flush=True)
+                # We raise this exception so the frontend catches it immediately
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Error: Program was blocked when reading terms and conditions OR provided policy was less than 200 characters."
+                )
+            
             print(f"📄 Extracted {len(text)} chars from URL.", flush=True)
             return str(text)
         else:
-            return f"Error fetching URL: Yellowcake Status {response.status_code}"
+            # Handle non-200 status codes (like 403 or 429)
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Error: Program was blocked (Status {response.status_code}) when reading terms and conditions."
+            )
             
+    except HTTPException as he:
+        # Re-raise HTTPExceptions so they reach the client
+        raise he
     except Exception as e:
         print(f"❌ Yellowcake Error: {str(e)}", flush=True)
-        return f"Error connecting to Yellowcake: {str(e)}"
-
+        raise HTTPException(status_code=400, detail=f"Error connecting to scraper: {str(e)}")
+    
 # --- HELPER: ROBUST URL DETECTOR ---
 def process_input(input_text: str) -> str:
-    """
-    Checks if input is a URL. If yes, fetches text via Yellowcake.
-    If no, returns the text as-is.
-    """
+    # 1. Clean the input first (removes accidental spaces/newlines)
     clean_input = input_text.strip()
     
-    # DEBUG LOG: Verify what the backend actually sees
-    print(f"🔍 Checking Input: '{clean_input[:30]}...'", flush=True)
-
-    # 1. Check if it looks like a URL (starts with http/https)
+    # 2. Check if it's a URL (Ignore the spaces check, just check the start)
     is_url = clean_input.lower().startswith(("http://", "https://"))
-    
-    # 2. Check if it has spaces (URLs don't have spaces)
-    has_spaces = " " in clean_input
 
-    if is_url and not has_spaces:
-        print("🚀 DETECTED URL -> Fetching content...", flush=True)
-        return fetch_from_yellowcake(clean_input)
+    if is_url:
+        print(f"🚀 URL detected: {clean_input}", flush=True)
+        try:
+            return fetch_from_yellowcake(clean_input)
+        except Exception as e:
+            # If scraper fails, we raise the error for the frontend
+            raise HTTPException(status_code=400, detail=str(e))
     
-    # Otherwise, it's pasted text
-    print("📝 DETECTED TEXT -> Analyzing directly.", flush=True)
-    return input_text
+    # 3. If it's not a URL, it's text
+    print("📝 Analyzing as raw text", flush=True)
+    return clean_input
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
