@@ -58,27 +58,30 @@ Object.values(MASTER_FLAGS).forEach(category => {
 });
 
 // --- API HELPER (FIXED) ---
+// Replace your existing postJSON with this:
 async function postJSON(path, body, setLoading, setError, setResult) {
   setLoading(true);
   setError('');
 
-  // --- THE FIX IS HERE ---
   const BACKEND_URL = "https://evidentia.onrender.com"; 
 
   try {
-    // We add BACKEND_URL before the path
     const res = await fetch(`${BACKEND_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
+    const data = await res.json();
+
     if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || `Request failed: ${res.status}`);
+      // Check if the backend specifically flagged a scraping block
+      if (data.detail && data.detail.includes("SITE_PROTECTED")) {
+        throw new Error("SITE_PROTECTED");
+      }
+      throw new Error(data.detail || `Request failed: ${res.status}`);
     }
 
-    const data = await res.json();
     setResult(data);
   } catch (e) {
     setError(e.message || 'Something went wrong');
@@ -208,6 +211,29 @@ function PolicyInput({ label, value, onChange, loading, onAnalyze }) {
 }
 
 function ErrorNotification({ error }) {
+  // If the error is our specific scraping block signal
+  if (error === "SITE_PROTECTED") {
+    return (
+      <div className="error-notification" style={{ 
+        backgroundColor: '#fff5f5', 
+        border: '2px solid #e74c3c', 
+        color: '#c53030', 
+        padding: '20px', 
+        borderRadius: '8px', 
+        marginTop: '20px',
+        textAlign: 'center'
+      }}>
+        <strong>🛑 Access Issue Detected</strong>
+        <p style={{ margin: '10px 0 0 0' }}>
+          This website is protecting its text from automated reading.
+          <br /><br />
+          <strong>To analyze this policy, please follow the "How to Analyze" instructions at the top of the page.</strong>
+        </p>
+      </div>
+    );
+  }
+
+  // Fallback for standard system errors
   return <div className="error-notification"><strong>Error:</strong> {error}</div>;
 }
 
