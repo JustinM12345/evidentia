@@ -38,56 +38,63 @@ def health():
     return {"ok": True}
 
 # --- HELPER: YELLOWCAKE FETCHER ---
+# --- HELPER: YELLOWCAKE FETCHER ---
 def fetch_from_yellowcake(target_url: str) -> str:
-    # ... (keep your existing header/payload setup) ...
     if not YELLOWCAKE_API_KEY:
         print("⚠️ Warning: No Yellowcake API Key found.", flush=True)
         return "Error: Yellowcake API Key missing."
 
     print(f"🍰 Calling Yellowcake for: {target_url}", flush=True)
     
-    # 1. Update the headers here
+    # 1. ADD: Enhanced Browser-like Headers
     headers = {
-        "x-api-key": YELLOWCAKE_API_KEY, # Keep your original key header
+        "x-api-key": YELLOWCAKE_API_KEY,
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
     }
     
+    # 2. ADD: Stealth & JavaScript Parameters 
     payload = {
         "url": target_url,
-        "render_js": True, # Recommended to help bypass bot detection
+        "render_js": True,        # Critical for Discord/Reddit
+        "wait": 5000,             # Give the page 5 seconds to load
+        "proxy_country": "us",    # Keep requests consistent from one region
         "prompt": "Extract the full Terms of Service or Privacy Policy text. Ignore navigation."
     }
-    
+
     try:
-        response = requests.post(YELLOWCAKE_URL, json=payload, headers=headers, timeout=30)
+        response = requests.post(YELLOWCAKE_URL, json=payload, headers=headers, timeout=45)
+        
+        # 3. ADD: Raw Response Debugging (Check your terminal for this!)
+        print(f"DEBUG: Yellowcake Status: {response.status_code}", flush=True)
+        print(f"DEBUG: Yellowcake Raw Output: {response.text[:200]}...", flush=True)
         
         if response.status_code == 200:
             data = response.json()
-            # Yellowcake can return content in different fields depending on the site
             text = data.get("text") or data.get("content") or data.get("data") or ""
             
-            # CRITICAL: Check for minimum length. 
-            # Most policies are 2000+ chars. Anything under 500 is likely a "Blocked" page.
+            # 4. FIX: Higher Minimum Length Validation
+            # Most policies are thousands of characters. Anything under 500 is a block page.
             if len(str(text).strip()) < 500:
-                print(f"⚠️ Scraping failed: Text too short ({len(str(text))} chars)", flush=True)
+                print(f"⚠️ Scraping failed: Likely blocked or empty page.", flush=True)
                 raise HTTPException(
-                    status_code=422, # Unprocessable Entity
-                    detail="The website blocked our scraper. Please copy and paste the text manually."
+                    status_code=403, 
+                    detail="The website blocked the automated reader. Please copy-paste the text manually."
                 )
             
+            print(f"📄 Extracted {len(text)} chars from URL.", flush=True)
             return str(text)
         else:
-            # If we get a 403, 429, or 500 from Yellowcake
             raise HTTPException(
                 status_code=response.status_code, 
-                detail=f"Scraper error (Status {response.status_code}). Try manual copy-paste."
+                detail=f"Scraper error: Received status {response.status_code}."
             )
             
     except HTTPException as he:
         raise he
     except Exception as e:
+        print(f"❌ Yellowcake Error: {str(e)}", flush=True)
         raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
 
 # --- HELPER: ROBUST URL DETECTOR ---
