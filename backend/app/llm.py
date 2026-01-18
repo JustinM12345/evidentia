@@ -159,7 +159,7 @@ def call_llm_extract(policy_text: str) -> dict:
     #     print("✅ Cache Hit (Single)")
     #     return RESULT_CACHE[text_hash]
 
-    return _internal_analyze_strict(clean_text, text_hash)
+    return _internal_analyze_strict(clean_text, None)
 
 def _internal_analyze_strict(policy_text, cache_key=None):
     model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash") 

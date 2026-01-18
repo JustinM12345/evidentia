@@ -40,7 +40,26 @@ def health():
 # --- HELPER: YELLOWCAKE FETCHER ---
 def fetch_from_yellowcake(target_url: str) -> str:
     # ... (keep your existing header/payload setup) ...
+    if not YELLOWCAKE_API_KEY:
+        print("⚠️ Warning: No Yellowcake API Key found.", flush=True)
+        return "Error: Yellowcake API Key missing."
 
+    print(f"🍰 Calling Yellowcake for: {target_url}", flush=True)
+    
+    # 1. Update the headers here
+    headers = {
+        "x-api-key": YELLOWCAKE_API_KEY, # Keep your original key header
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    
+    payload = {
+        "url": target_url,
+        "render_js": True, # Recommended to help bypass bot detection
+        "prompt": "Extract the full Terms of Service or Privacy Policy text. Ignore navigation."
+    }
+    
     try:
         response = requests.post(YELLOWCAKE_URL, json=payload, headers=headers, timeout=30)
         
