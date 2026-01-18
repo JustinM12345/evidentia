@@ -1,11 +1,23 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
+from fastapi.middleware.cors import CORSMiddleware  # <--- IMPORT ADDED
 
 # --- FIX: Direct import ---
 from llm import call_llm_extract 
 
 app = FastAPI(title="Evidentia API")
+
+# --- NEW: UNBLOCK THE FRONTEND (CORS) ---
+# This block tells the server: "Accept requests from ANY website"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows evidentias.tech, localhost, vercel, etc.
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows POST, GET, OPTIONS (fixes 405 error)
+    allow_headers=["*"],
+)
+# ----------------------------------------
 
 class AnalyzeRequest(BaseModel):
     text: str
