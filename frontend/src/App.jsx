@@ -100,9 +100,32 @@ export default function App() {
     <div className="container">
       <img src="/logo.png" alt="Evidentia Logo" className="logo" />
 
-      <p>
-        Evidentia empowers you to analyze legal terms and conditions by identifying critical data that companies may collect when you agree to their policies. You can also compare two policies side-by-side, helping you spot key differences and similarities to make more informed decisions about your privacy and data security.
+      <p className="slogan-text">
+        Presenting Facts So Clearly That The Truth Becomes Impossible To Ignore.
       </p>
+
+      <div className="instruction-box">
+        <h2 className="text-center text-xl font-bold mb-4">How to Analyze Your Privacy</h2>
+        <p className="text-center mb-6">
+          Evidentia empowers you to uncover hidden risks in legal terms. To ensure the most accurate 
+          analysis and bypass website protections, please use the manual copy method below.
+        </p>
+        
+        <div className="steps-grid">
+          <div className="step-item">
+            <span className="step-number">1</span>
+            <p>Open the Terms or Privacy policy you wish to analyze.</p>
+          </div>
+          <div className="step-item">
+            <span className="step-number">2</span>
+            <p>Press <b>Ctrl + A</b> to select all text, then <b>Ctrl + C</b> to copy.</p>
+          </div>
+          <div className="step-item">
+            <span className="step-number">3</span>
+            <p>Paste (<b>Ctrl + V</b>) the text into the boxes below and click Analyze or Compare.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Inputs */}
       <div className="policy-container">
