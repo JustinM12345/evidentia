@@ -184,6 +184,12 @@ export default function App() {
           <SingleAnalysisView result={result} />
         )
       )}
+
+      {/* --- ADD THE FOOTER HERE --- */}
+      <footer className="footer-credits">
+        Developed By: Justin Mui, Gordon Huang, and Evan Wu @ UOttaHack2026
+      </footer>
+      
     </div>
   );
 }
