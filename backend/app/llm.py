@@ -3,6 +3,7 @@ import json
 import re
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types # Import types for explicit checking
 from backend.app.flags import FLAGS
 from backend.app.weights import FLAG_WEIGHTS
 
@@ -17,138 +18,148 @@ client = genai.Client(api_key=API_KEY)
 
 def _extract_json(text: str) -> dict:
     """
-    Extracts the first valid JSON block, ignoring extra metadata like `thought_signature`.
+    Extracts the first valid JSON block.
     """
     try:
-        # Search for valid JSON block within the text (look for { ... })
+        # Search for valid JSON block (looking for the outermost curly braces)
         m = re.search(r"\{.*\}", text, flags=re.DOTALL)
         if m:
-            # Return the first valid JSON block found
             return json.loads(m.group(0))
         else:
-            raise ValueError(f"No valid JSON found in the response: {text[:400]}")
+            # Fallback: sometimes LLMs return just the list [ ... ]
+            m_list = re.search(r"\[.*\]", text, flags=re.DOTALL)
+            if m_list:
+                return {"findings": json.loads(m_list.group(0))}
+            
+            raise ValueError(f"No valid JSON found in response: {text[:200]}...")
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to decode JSON response: {str(e)}")
 
 
-def calculate_scores(findings: dict) -> dict:
+def calculate_scores(findings: list) -> dict:
     """
     Calculates the overall score and category scores based on flag weights.
     """
-    category_scores = {}
+    category_scores = {category: 0 for category in FLAGS.keys()}
     overall_score = 0
     total_weight = 0
 
-    for flag, finding in findings.items():
-        weight = FLAG_WEIGHTS.get(flag, 0)  # Default to 0 if flag not found
-        status = finding['status']
-        confidence = finding['confidence']
+    for finding in findings:
+        flag = finding.get('flag')
+        status = finding.get('status')
+        confidence = finding.get('confidence', 0)
+        category_key = finding.get('category') # This should match keys in FLAGS
 
-        # Score logic
+        # 1. Get weight
+        weight = FLAG_WEIGHTS.get(flag, 0)
+
+        # 2. Update Scores
         if status == "true":
             overall_score += weight
+            # Only add to category score if we can map it back to a valid category
+            if category_key in category_scores:
+                category_scores[category_key] += weight * confidence
+            
+            total_weight += weight
+
         elif status == "unknown":
-            overall_score += weight * 0.5  # Less weight for unknown flags
+            overall_score += weight * 0.5
+            total_weight += weight
 
-        # Update category scores
-        category = FLAGS.get(flag, {}).get('category', 'unknown')
-        if category not in category_scores:
-            category_scores[category] = 0
-        category_scores[category] += weight * confidence
+    # Normalize
+    final_score = (overall_score / total_weight) * 100 if total_weight > 0 else 0
+    
+    return {
+        "overall_score": round(final_score, 2), 
+        "category_scores": category_scores
+    }
 
-        total_weight += weight
 
-    # Normalize the overall score
-    overall_score = (overall_score / total_weight) * 100 if total_weight else 0
-    return {"overall_score": overall_score, "category_scores": category_scores}
-
-def clean_response(text: str) -> str:
-    """
-    This function removes non-JSON parts (such as `thought_signature`) from the response.
-    """
-    # Example regex to remove unwanted text (you may need to adapt this to the actual structure)
-    response_clean = re.sub(r'"thought_signature":\s*"[^"]+"', '', text)  # Remove `thought_signature`
-    return response_clean
+def clean_response(response_text):
+    # Remove markdown code blocks if present
+    cleaned = response_text.replace("```json", "").replace("```", "")
+    # Remove thought signatures
+    cleaned = re.sub(r'"thought_signature":\s*"[^"]+"', '', cleaned)
+    return cleaned
 
 
 def call_llm_extract(policy_text: str) -> dict:
-    model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash") 
 
-    # Construct the prompt that explicitly asks Gemini to return only valid JSON
+    # UPDATED PROMPT: Explicitly asking for a list wrapped in a "findings" key
     prompt = f"""
-    You are analyzing a privacy policy. Your task is to return **only valid JSON** with the exact structure specified below. Do **not** include any markdown, backticks, explanations, or non-JSON content such as metadata or thought signatures. Only return the JSON object in the following format:
+    You are an expert legal AI. Analyze the following privacy policy text.
+    Identify relevant data collection, sharing, rights, and risk flags based on the text.
 
+    Return a JSON object with a single key "findings" which contains a list of objects.
+    
+    The JSON structure must be exactly this:
     {{
-        "flag": "<flag_id>",         # The unique identifier for the flag
-        "label": "<flag_label>",     # A human-readable label for the flag
-        "category": "<category_name>", # The category this flag belongs to (e.g., data_collection, legal)
-        "status": "true"|"false"|"unknown", # The status of the flag
-        "confidence": <confidence_score>,   # A number between 0 and 1 indicating the confidence level
-        "evidence_quote": "<text_from_policy>" # The specific excerpt from the policy supporting this flag
+        "findings": [
+            {{
+                "flag": "<exact_flag_id_from_known_list>",         
+                "label": "<human_readable_label>",     
+                "category": "<category_name>", 
+                "status": "true" | "false" | "unknown", 
+                "confidence": <float between 0 and 1>,   
+                "evidence_quote": "<short quote verifying the finding>"
+            }},
+            ...
+        ]
     }}
 
-    - **Do not add any extra text**. Only return **valid JSON**. No explanations or additional parts.
-    - For **flags not found** in the policy text, return the flag with `"status": "unknown"`, `"confidence": 0.5`, and an empty `"evidence_quote"`.
-    - **Do not return any metadata** or extra information like "thought_signature."
-
-    The flags are as follows:
-    {json.dumps(FLAGS, indent=2)}  # List of all flags and their corresponding labels
-
-    Policy text:
-    {policy_text}
+    IMPORTANT: 
+    - Only output valid JSON. 
+    - Do not include markdown formatting.
+    - If a flag is not explicitly mentioned, mark status as "unknown" or "false".
+    
+    Policy Text:
+    {policy_text[:30000]} 
     """
 
     try:
-        # Call Gemini with the constructed prompt
-        resp = client.models.generate_content(
+        response = client.models.generate_content(
             model=model,
             contents=prompt
         )
 
-        # Log the raw response to check for unexpected text
-        print("Raw Response:", resp.text)
+        # Robust extraction of text
+        if hasattr(response, 'text'):
+            raw_text = response.text
+        else:
+            # Fallback for different SDK versions/response types
+            print(f"Debug - Response Type: {type(response)}")
+            raw_text = str(response)
 
-        # Clean the response to remove non-JSON parts (like 'thought_signature')
-        response_clean = clean_response(resp.text)
+        if not raw_text:
+            raise ValueError("Empty response from Gemini.")
 
-        # Extract the response JSON
-        findings = _extract_json(response_clean)
+        cleaned_text = clean_response(raw_text)
+        print("Cleaned Response Snippet:", cleaned_text[:200]) # Debug log
 
-        # Calculate scores based on the findings
-        scores = calculate_scores(findings)
+        # Parse JSON
+        parsed_json = _extract_json(cleaned_text)
 
-        # Include the scores with the findings
-        return {**findings, **scores}
+        # Normalization: Ensure we have a list of findings
+        findings_list = parsed_json.get("findings", [])
+        if not findings_list and isinstance(parsed_json, list):
+            findings_list = parsed_json # specific fallback if AI returned just a list
+
+        # Calculate scores
+        scores = calculate_scores(findings_list)
+
+        # Return combined dict
+        return {
+            "findings": findings_list,
+            **scores
+        }
 
     except Exception as e:
-        return {"error": str(e)}  # In case of any failure, return error details
-
-
-
-def normalize_flags(response: dict) -> dict:
-    """
-    Ensures all flags are included in the response and each flag has the correct format.
-    """
-    normalized_response = {
-        "overall_score": response.get("overall_score", 0),
-        "category_scores": response.get("category_scores", {}),
-        "findings": []
-    }
-
-    for category, flags in FLAGS.items():
-        for flag, label in flags.items():
-            # Check if the flag is present, if not, initialize it
-            flag_data = next((item for item in response["findings"] if item["flag"] == flag), None)
-            if flag_data is None:
-                # Flag not found, initialize with defaults
-                flag_data = {
-                    "flag": flag,
-                    "label": label,
-                    "category": category,
-                    "status": "unknown",
-                    "confidence": 0.5,
-                    "evidence_quote": ""
-                }
-            normalized_response["findings"].append(flag_data)
-
-    return normalized_response
+        print(f"Error in call_llm_extract: {str(e)}")
+        # Return a safe empty structure so the frontend doesn't crash completely
+        return {
+            "findings": [],
+            "overall_score": 0,
+            "category_scores": {},
+            "error": str(e)
+        }
