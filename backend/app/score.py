@@ -1,5 +1,6 @@
-from .weights import FLAG_WEIGHTS
-from .flags import FLAGS
+# --- FIX: Direct imports ---
+from weights import FLAG_WEIGHTS
+from flags import FLAGS
 
 def compute_score(findings):
     overall_score = 0
@@ -21,4 +22,3 @@ def compute_score(findings):
             overall_score -= weight * 0.5  
 
     return overall_score, category_scores
-

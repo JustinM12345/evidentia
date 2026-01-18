@@ -3,19 +3,24 @@ import json
 import re
 from dotenv import load_dotenv
 from google import genai
-# Keep your working imports
-from backend.app.flags import FLAGS
-from backend.app.weights import FLAG_WEIGHTS
+
+# --- FIX: Direct imports ---
+from flags import FLAGS
+from weights import FLAG_WEIGHTS
 
 load_dotenv()
 
 API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 if not API_KEY:
-    raise ValueError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY) in .env")
+    # Optional: Print warning instead of crash if running locally without env
+    print("Warning: Missing GEMINI_API_KEY")
 
-client = genai.Client(api_key=API_KEY)
+# Safety check for client init
+if API_KEY:
+    client = genai.Client(api_key=API_KEY)
+else:
+    client = None
 
-# Any policy with >75 risk points will be treated as 100% dangerous.
 TOTAL_POSSIBLE_SCORE = 75
 
 def get_valid_flags():
@@ -53,7 +58,6 @@ def calculate_scores(findings: list) -> dict:
 
         weight = FLAG_WEIGHTS.get(flag, 0)
 
-        # 2. SCORING LOGIC
         if status == "true":
             score_impact = weight * confidence
             overall_score += score_impact
@@ -64,10 +68,9 @@ def calculate_scores(findings: list) -> dict:
             score_impact = weight * 0.25
             overall_score += score_impact
 
-    # 3. NORMALIZE & CAP SCORE
     if TOTAL_POSSIBLE_SCORE > 0:
         raw_score = (overall_score / TOTAL_POSSIBLE_SCORE) * 100
-        final_score = min(raw_score, 100) # <--- THE FIX: Force max 100
+        final_score = min(raw_score, 100)
     else:
         final_score = 0
     
@@ -78,9 +81,11 @@ def calculate_scores(findings: list) -> dict:
 
 
 def call_llm_extract(policy_text: str) -> dict:
+    if not client:
+        return {"error": "API Key missing"}
+
     model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash") 
 
-    # 4. PROMPT UPDATE: "Silence = Safe"
     prompt = f"""
     You are an expert legal AI. Analyze the following privacy policy text.
     

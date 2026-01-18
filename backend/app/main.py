@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
-from backend.app.llm import call_llm_extract
+
+# --- FIX: Direct import ---
+from llm import call_llm_extract 
 
 app = FastAPI(title="Evidentia API")
 
@@ -22,9 +24,6 @@ def health():
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
     llm_result = call_llm_extract(req.text)
-
-    # TEMP: just return LLM result directly first
-    # Once stable, you’ll map/validate it into your expected schema.
     llm_result["meta"] = {"url": req.url}
     return llm_result
 
@@ -43,25 +42,20 @@ def compare(req: CompareRequest) -> Dict[str, Any]:
     unique_to_A = []
     unique_to_B = []
 
-    # Get all unique flag keys
     all_flags = set(findingsA.keys()).union(set(findingsB.keys()))
 
     for flag_id in all_flags:
         fA = findingsA.get(flag_id)
         fB = findingsB.get(flag_id)
 
-        # FIX: Consider a risk "active" if it is TRUE or UNKNOWN (since unknown adds to score)
         is_risk_A = fA and fA["status"] in ["true", "unknown"]
         is_risk_B = fB and fB["status"] in ["true", "unknown"]
 
         if is_risk_A and is_risk_B:
-            # Shared Risk
             common_risks.append(fA) 
         elif is_risk_A and not is_risk_B:
-            # Unique to A
             unique_to_A.append(fA)
         elif is_risk_B and not is_risk_A:
-            # Unique to B
             unique_to_B.append(fB)
 
     # 4. Determine Verdict
