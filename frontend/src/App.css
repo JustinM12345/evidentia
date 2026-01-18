@@ -1,230 +1,216 @@
-/* Global Reset */
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* App.css - FIXED LAYOUT */
 
-/* Body Styling */
-body, html {
-  font-family: 'Roboto', sans-serif;
-  background-color: #ffffff;  /* White background */
-  color: #121212;  /* Dark text color */
-  display: flex;
-  justify-content: center; /* Center horizontally */
-  align-items: flex-start; /* Align content at the top */
-  height: 100%;  /* Ensure body takes full height of the viewport */
-  width: 100%;  /* Ensure body takes full width of the viewport */
-  overflow-x: hidden;  /* Prevent horizontal scrolling */
-  margin: 0;  /* Remove body margin */
-}
-
-/* Container Styling */
+/* 1. Main Container */
 .container {
-  width: 100%;  /* Full width */
-  max-width: 1200px;  /* Optional: Set a max-width to prevent the container from stretching too wide */
-  padding: 24px;
-  background-color: #ffffff;  /* White background */
-  border-radius: 12px;
+  width: 100%;
+  max-width: 1400px; 
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-sizing: border-box;
-  color: #121212;  /* Dark text color */
-  flex-grow: 1;  /* Ensure container grows */
-  min-height: 100%;  /* Full height of the body */
-  position: relative;  /* Position relative to ensure correct flow */
-  overflow-y: auto;  /* Allow vertical scrolling */
-  height: 100%; /* Make sure container takes the full height */
-  margin: 0 auto; /* Center horizontally */
 }
 
-/* Logo Styling */
 .logo {
-  width: 500px;  /* Set a smaller width for the logo */
-  height: auto;  /* Maintain aspect ratio */
-  margin-bottom: 10px; /* Reduce space below the logo */
+  height: 80px; 
+  margin-bottom: 20px;
+  will-change: filter;
+  transition: filter 300ms;
 }
 
-/* Title Styling */
-h1 {
-  font-size: 36px;
-  margin-bottom: 16px;
-  color: #121212;  /* Dark text */
-}
-
-/* Product Description Styling */
+/* 2. Text Description */
 p {
-  font-size: 18px;
-  margin-top: 0;
+  font-size: 1.1rem;
+  color: #555;
+  max-width: 800px;
   margin-bottom: 30px;
-  text-align: center;
-  opacity: 0.8;
-  max-width: 800px; /* Limit width to make the text more readable */
-  line-height: 1.5; /* Add line height for better readability */
-  color: #121212;  /* Dark text */
+  line-height: 1.6;
 }
 
-/* Flex Layout for Input Sections */
+/* 3. The Input Section (Side-by-Side) */
 .policy-container {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row; 
+  justify-content: center;
+  gap: 30px; 
   width: 100%;
+  margin-bottom: 30px;
 }
 
-@media screen and (min-width: 768px) {
-  .policy-container {
-    flex-direction: row;
-    justify-content: space-between;
-  }
-}
-
-/* Input Area Styling */
 .policy-input {
-  flex: 1;
-  padding: 16px;
-  background-color: #f5f5f5;  /* Light background for input */
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 450px;
-  box-sizing: border-box;
+  flex: 1; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-/* Adjust headers (Policy A and Policy B) */
 .policy-input h3 {
-  text-align: center;
-  font-size: 20px;
-  margin-bottom: 12px;
+  margin-top: 0;
+  color: #333;
 }
 
-/* Textarea Styling */
 textarea {
   width: 100%;
-  padding: 16px;
-  font-size: 16px;
-  font-family: 'Roboto', sans-serif;
-  background-color: #ffffff;  /* White background for textarea */
-  color: #121212;  /* Dark text color */
-  border: 1px solid #ccc;  /* Light border color */
+  padding: 15px;
   border-radius: 8px;
-  margin-bottom: 16px;
-  resize: none;
-  transition: all 0.3s ease-in-out;
-  box-sizing: border-box;
+  border: 1px solid #ddd;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 300px; 
+  margin-bottom: 15px;
+  background-color: white; 
+  color: #333;
 }
 
 textarea:focus {
-  border-color: #007bff;
-  outline: none;
+  outline: 2px solid #646cff;
+  border-color: transparent;
 }
 
-/* Buttons Styling */
+/* 4. Buttons */
 button {
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 500;
-  border: none;
   border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.8em 1.5em;
+  font-size: 1em;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  width: 100%;
-  max-width: 200px;
-  margin-top: 8px;
+  transition: border-color 0.25s, background-color 0.25s;
 }
 
-button:disabled {
-  background-color: #888;
-  cursor: not-allowed;
-}
-
-/* Primary and Secondary Buttons */
 button.primary {
   background-color: #007bff;
   color: white;
 }
-
-button.secondary {
-  background-color: #555;
-  color: white;
-}
-
-button:hover:not(:disabled) {
+button.primary:hover {
   background-color: #0056b3;
 }
 
-button.secondary:hover:not(:disabled) {
-  background-color: #333;
+button.secondary {
+  background-color: #6c757d;
+  color: white;
+  margin-left: 10px;
+}
+button.secondary:hover {
+  background-color: #5a6268;
 }
 
-/* Loading Text - Positioning */
-.loading-text {
-  color: #007bff;
-  font-weight: bold;
-  margin-bottom: 12px; /* Move it above the Compare button */
-  text-align: center; /* Center the loading text */
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 
-/* Error Notification */
-.error-notification {
-  margin-top: 20px;
-  color: crimson;
-  font-weight: 600;
-}
-
-/* Output Area Styling */
-.output {
+/* 5. CHECKLIST STYLES */
+.single-view-container {
+  width: 100%;
   margin-top: 30px;
-  padding: 24px;
-  background-color: #ffffff;  /* White background for output */
-  color: #121212;  /* Dark text color */
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  text-align: left;
+}
+
+.single-view-container h2 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.checklist-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.checklist-row {
+  display: flex;
+  border: 1px solid #eee;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  width: 100%;  /* Ensure full width */
-  max-width: 100%;  /* Remove max-width restriction */
-  overflow-y: auto;  /* Scrollable area */
-  flex-grow: 1;  /* Allow the output to grow */
-  margin-bottom: 30px;  /* Some space before the Compare button */
-  box-sizing: border-box;  /* Ensures the width is calculated correctly */
-  background-color: #ffffff;  /* Ensure it's white */
+  overflow: hidden;
+  background: white;
 }
 
-/* Pre-formatted Text */
-pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  line-height: 1.5;  /* Add line height for better readability */
-  font-size: 14px;  /* Make the text size a bit smaller */
+.status-box {
+  width: 250px; 
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
 }
 
-/* Mobile Responsiveness */
-@media screen and (max-width: 768px) {
-  .container {
-    padding: 16px;
-  }
-
-  h1 {
-    font-size: 28px;
-  }
-
-  p {
-    font-size: 16px;
-  }
-
-  .policy-input {
-    max-width: 100%;
-  }
-
-  button {
-    width: 100%;
-    max-width: none;
-  }
+.status-box strong {
+  font-size: 15px;
 }
 
-/* Comparison Container */
+.status-badge {
+  font-size: 11px;
+  background: rgba(0,0,0,0.2);
+  padding: 3px 6px;
+  border-radius: 4px;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.box-green { background-color: #2ecc71; }
+.box-red { background-color: #e74c3c; }
+.box-yellow { background-color: #f1c40f; color: #333; }
+
+.description-box {
+  flex-grow: 1;
+  padding: 15px;
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  color: #555;
+  font-style: italic;
+  border-left: 1px solid #eee;
+}
+
+/* Score Header (MOVED TO TOP) */
+.score-header {
+  margin-bottom: 40px; /* Space between score and list */
+  padding-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 8px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  background-color: white;
+}
+
+.score-text h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.score-text p {
+  margin: 0;
+  color: #777;
+}
+
+/* Comparison Styles */
 .comparison-container {
   width: 100%;
   margin-top: 30px;
@@ -234,7 +220,6 @@ pre {
   padding: 24px;
 }
 
-/* Verdict Banner */
 .verdict-banner {
   text-align: center;
   padding: 20px;
@@ -242,12 +227,8 @@ pre {
   margin-bottom: 30px;
   color: #27ae60;
 }
-.verdict-banner h2 {
-  margin: 0;
-  font-size: 28px;
-}
+.verdict-banner h2 { margin: 0; font-size: 28px; }
 
-/* Score Cards */
 .score-cards {
   display: flex;
   justify-content: center;
@@ -282,7 +263,6 @@ pre {
   font-size: 18px;
 }
 
-/* Details Section (3 Columns) */
 .details-section {
   display: flex;
   justify-content: space-between;
@@ -314,22 +294,15 @@ pre {
 .warning-text { color: #f39c12; }
 .good-text { color: #2ecc71; text-align: center; font-weight: bold; }
 
-/* List Styles */
-.detail-column ul {
-  list-style: none;
-  padding: 0;
-}
-
-.detail-column li {
-  padding: 8px 12px;
-  border-bottom: 1px solid #f5f5f5;
-  font-size: 14px;
-}
+.detail-column ul { list-style: none; padding: 0; }
+.detail-column li { padding: 8px 12px; border-bottom: 1px solid #f5f5f5; font-size: 14px; }
 .detail-column li:last-child { border-bottom: none; }
 
-/* Responsive */
-@media screen and (max-width: 768px) {
-  .details-section {
-    flex-direction: column;
+@media (max-width: 768px) {
+  .policy-container {
+    flex-direction: column; 
   }
+  .details-section { flex-direction: column; }
+  .checklist-row { flex-direction: column; }
+  .status-box { width: 100%; flex-direction: row; justify-content: space-between; align-items: center; }
 }
