@@ -15,9 +15,8 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# 1. PRE-CALCULATE THE MAX SCORE (Sum of all possible bad weights)
-# This fixes the "50% score" bug. Now, 0 findings = 0/100 score.
-TOTAL_POSSIBLE_SCORE = sum(FLAG_WEIGHTS.values())
+# Any policy with >75 risk points will be treated as 100% dangerous.
+TOTAL_POSSIBLE_SCORE = 75
 
 def get_valid_flags():
     valid_ids = []
@@ -43,9 +42,6 @@ def calculate_scores(findings: list) -> dict:
     category_scores = {category: 0 for category in FLAGS.keys()}
     overall_score = 0
     
-    # We no longer track "total_weight" of findings. 
-    # We compare against the TOTAL_POSSIBLE_SCORE of the entire system.
-
     for finding in findings:
         flag = finding.get('flag')
         status = finding.get('status')
@@ -57,25 +53,21 @@ def calculate_scores(findings: list) -> dict:
 
         weight = FLAG_WEIGHTS.get(flag, 0)
 
-        # 2. SCORING LOGIC UPDATE
+        # 2. SCORING LOGIC
         if status == "true":
-            # Full penalty for confirmed risks
             score_impact = weight * confidence
             overall_score += score_impact
             if category_key in category_scores:
                 category_scores[category_key] += score_impact
                 
         elif status == "unknown":
-            # Reduced penalty (25%) for ambiguous text, instead of 50%
-            # If it's not mentioned at all, the AI won't return it (status=false), so 0 penalty.
             score_impact = weight * 0.25
             overall_score += score_impact
 
-    # 3. NORMALIZE SCORE
-    # This prevents the score from spiking just because one small thing was found.
-    # Score is now: (Risk Found / Total Possible Risk) * 100
+    # 3. NORMALIZE & CAP SCORE
     if TOTAL_POSSIBLE_SCORE > 0:
-        final_score = (overall_score / TOTAL_POSSIBLE_SCORE) * 100
+        raw_score = (overall_score / TOTAL_POSSIBLE_SCORE) * 100
+        final_score = min(raw_score, 100) # <--- THE FIX: Force max 100
     else:
         final_score = 0
     
