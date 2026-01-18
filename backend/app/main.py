@@ -4,13 +4,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from fastapi.middleware.cors import CORSMiddleware
-
-# Direct import from your llm.py
 from llm import call_llm_extract, call_llm_compare_side_by_side
 
 app = FastAPI(title="Evidentia API")
 
-# --- CORS SETTINGS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,7 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- YELLOWCAKE CONFIG ---
 YELLOWCAKE_API_KEY = os.getenv("YELLOWCAKE_API_KEY") 
 YELLOWCAKE_URL = "https://api.yellowcake.dev/v1/extract" 
 
@@ -37,96 +33,59 @@ class CompareRequest(BaseModel):
 def health():
     return {"ok": True}
 
-# --- HELPER: YELLOWCAKE FETCHER ---
-# --- HELPER: YELLOWCAKE FETCHER ---
 def fetch_from_yellowcake(target_url: str) -> str:
     if not YELLOWCAKE_API_KEY:
-        print("⚠️ Warning: No Yellowcake API Key found.", flush=True)
         return "Error: Yellowcake API Key missing."
 
-    print(f"🍰 Calling Yellowcake for: {target_url}", flush=True)
-    
-    # 1. ADD: Enhanced Browser-like Headers
+    # Improved headers to mimic a real browser
     headers = {
         "x-api-key": YELLOWCAKE_API_KEY,
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
     }
     
-    # 2. ADD: Stealth & JavaScript Parameters 
     payload = {
         "url": target_url,
-        "render_js": True,        # Critical for Discord/Reddit
-        "wait": 5000,             # Give the page 5 seconds to load
-        "proxy_country": "us",    # Keep requests consistent from one region
-        "prompt": "Extract the full Terms of Service or Privacy Policy text. Ignore navigation."
+        "render_js": True,
+        "wait": 3000,
+        "prompt": "Extract the full Terms of Service or Privacy Policy text."
     }
 
     try:
-        response = requests.post(YELLOWCAKE_URL, json=payload, headers=headers, timeout=45)
-        
-        # 3. ADD: Raw Response Debugging (Check your terminal for this!)
-        print(f"DEBUG: Yellowcake Status: {response.status_code}", flush=True)
-        print(f"DEBUG: Yellowcake Raw Output: {response.text[:200]}...", flush=True)
-        
+        response = requests.post(YELLOWCAKE_URL, json=payload, headers=headers, timeout=30)
         if response.status_code == 200:
             data = response.json()
             text = data.get("text") or data.get("content") or data.get("data") or ""
             
-            # 4. FIX: Higher Minimum Length Validation
-            # Most policies are thousands of characters. Anything under 500 is a block page.
+            # Guardrail to detect if we were served a blank/blocked page
             if len(str(text).strip()) < 500:
-                print(f"⚠️ Scraping failed: Likely blocked or empty page.", flush=True)
-                raise HTTPException(
-                    status_code=403, 
-                    detail="The website blocked the automated reader. Please copy-paste the text manually."
-                )
+                raise HTTPException(status_code=400, detail="Error: Website blocked the reader. Please copy-paste manually.")
             
-            print(f"📄 Extracted {len(text)} chars from URL.", flush=True)
             return str(text)
         else:
-            raise HTTPException(
-                status_code=response.status_code, 
-                detail=f"Scraper error: Received status {response.status_code}."
-            )
-            
-    except HTTPException as he:
-        raise he
+            raise HTTPException(status_code=400, detail=f"Scraper error: Status {response.status_code}")
     except Exception as e:
-        print(f"❌ Yellowcake Error: {str(e)}", flush=True)
-        raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
+        if isinstance(e, HTTPException): raise e
+        return f"Error connecting: {str(e)}"
 
-# --- HELPER: ROBUST URL DETECTOR ---
 def process_input(input_text: str) -> str:
     clean_input = input_text.strip()
     is_url = clean_input.lower().startswith(("http://", "https://"))
     has_spaces = " " in clean_input
 
     if is_url and not has_spaces:
-        print("🚀 DETECTED URL -> Fetching content...", flush=True)
-        result = fetch_from_yellowcake(clean_input)
-        
-        # NEW: Check if the result is an error message from our fetcher
-
-        return result
-    
+        return fetch_from_yellowcake(clean_input)
     return input_text
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
     final_text = process_input(req.text)
-    
     llm_result = call_llm_extract(final_text)
-    
-    passed_url = req.text if req.text.startswith("http") else req.url
-    llm_result["meta"] = {"url": passed_url}
-    
+    llm_result["meta"] = {"url": req.text if req.text.startswith("http") else req.url}
     return llm_result
 
 @app.post("/api/compare")
 def compare(req: CompareRequest) -> Dict[str, Any]:
-    print("\n--- NEW COMPARISON REQUEST ---", flush=True)
     processed_A = process_input(req.textA)
     processed_B = process_input(req.textB)
     
@@ -138,44 +97,26 @@ def compare(req: CompareRequest) -> Dict[str, Any]:
     findingsA = {f["flag"]: f for f in reportA["findings"]}
     findingsB = {f["flag"]: f for f in reportB["findings"]}
     
-    common_risks = []
-    unique_to_A = []
-    unique_to_B = []
-
+    common_risks, unique_to_A, unique_to_B = [], [], []
     all_flags = set(findingsA.keys()).union(set(findingsB.keys()))
 
     for flag_id in all_flags:
-        fA = findingsA.get(flag_id)
-        fB = findingsB.get(flag_id)
-
-        is_risk_A = fA and fA["status"] == "true"
-        is_risk_B = fB and fB["status"] == "true"
-
-        if is_risk_A and is_risk_B:
+        fA, fB = findingsA.get(flag_id), findingsB.get(flag_id)
+        if fA and fA["status"] == "true" and fB and fB["status"] == "true":
             common_risks.append(fA) 
-        elif is_risk_A and not is_risk_B:
+        elif fA and fA["status"] == "true":
             unique_to_A.append(fA)
-        elif is_risk_B and not is_risk_A:
+        elif fB and fB["status"] == "true":
             unique_to_B.append(fB)
 
-    scoreA = reportA["overall_score"]
-    scoreB = reportB["overall_score"]
+    scoreA, scoreB = reportA["overall_score"], reportB["overall_score"]
+    verdict = "Policy B is Safer" if scoreA > scoreB else ("Policy A is Safer" if scoreB > scoreA else "Tie")
     
-    verdict = "Tie"
-    winner = "Tie"
-    if scoreA > scoreB:
-        verdict = "Policy B is Safer"
-        winner = "B"
-    elif scoreB > scoreA:
-        verdict = "Policy A is Safer"
-        winner = "A"
-
     return {
-        "reportA": reportA,
-        "reportB": reportB,
+        "reportA": reportA, "reportB": reportB,
         "comparison": {
             "verdict": verdict,
-            "winner": winner,
+            "winner": "B" if scoreA > scoreB else ("A" if scoreB > scoreA else "Tie"),
             "score_diff": round(abs(scoreA - scoreB), 2),
             "common_risks": common_risks,
             "unique_to_A": unique_to_A,

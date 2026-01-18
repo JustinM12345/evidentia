@@ -55,7 +55,6 @@ DEFINITIONS = {
 }
 
 # --- LAYER 2: REGEX GUARDRAILS ---
-# If these keywords are NOT present, the flag is FORCED to False.
 GUARDRAILS = {
     "sells_user_data": [r"sell", r"sold", r"rent", r"monetary", r"consideration", r"exchange"],
     "collects_biometrics": [r"biometric", r"face", r"facial", r"fingerprint", r"voice", r"retina", r"iris"],
@@ -108,12 +107,10 @@ def convert_map_to_list(data_map, source_text):
         is_present = result.get("present", False)
         quote = result.get("evidence", "")
 
-        # Strict Evidence Check
         if is_present:
             if not quote or len(quote) < 10 or len(quote.split()) < 3:
                 is_present = False
 
-        # Guardrail Check
         if is_present and not passes_guardrails(flag_id, source_text):
             is_present = False
 
@@ -128,17 +125,13 @@ def convert_map_to_list(data_map, source_text):
             })
     return clean_findings
 
-# --- LAYER 3: NOISE CLEANER ---
-# Removes junk so the AI (and Guardrails) don't get confused by footers.
 def clean_noise(text: str) -> str:
     lines = text.split('\n')
     cleaned_lines = []
     for line in lines:
         stripped = line.strip()
-        # Remove navigation/menu lines
         if len(stripped) < 40 and ("Home" in stripped or "About" in stripped or "Contact" in stripped or "Login" in stripped):
             continue
-        # Remove copyright/footer junk
         if "rights reserved" in stripped.lower() or "copyright" in stripped.lower() or "©" in stripped:
             continue
         if not stripped:
@@ -153,11 +146,11 @@ def call_llm_extract(policy_text: str) -> dict:
     
     clean_text = clean_noise(policy_text)
 
-    # Cache Check
-    # text_hash = hashlib.md5(clean_text.encode('utf-8')).hexdigest()
-    # if text_hash in RESULT_CACHE:
-    #     print("✅ Cache Hit (Single)")
-    #     return RESULT_CACHE[text_hash]
+    # RE-ENABLED: Proper Cache check
+    text_hash = hashlib.md5(clean_text.encode('utf-8')).hexdigest()
+    if text_hash in RESULT_CACHE:
+        print("✅ Cache Hit (Single)")
+        return RESULT_CACHE[text_hash]
 
     return _internal_analyze_strict(clean_text, None)
 
@@ -174,7 +167,7 @@ def _internal_analyze_strict(policy_text, cache_key=None):
 
     config = types.GenerateContentConfig(
         temperature=0.0,
-        top_k=1, # DETERMINISTIC
+        top_k=1, 
         response_mime_type="application/json",
         response_schema={
             "type": "object", 
@@ -183,15 +176,7 @@ def _internal_analyze_strict(policy_text, cache_key=None):
         }
     )
     
-    prompt = f"""
-    Analyze the LEGAL TEXT below. 
-    IGNORE any website navigation, footers, or marketing text. Focus ONLY on the privacy policy clauses.
-    
-    Definitions: {json.dumps(DEFINITIONS)}
-    
-    Text: 
-    {policy_text[:70000]}
-    """
+    prompt = f"Analyze the LEGAL TEXT below. IGNORE website noise. Focus ONLY on privacy policy clauses.\n\nDefinitions: {json.dumps(DEFINITIONS)}\n\nText:\n{policy_text[:70000]}"
     
     try:
         resp = client.models.generate_content(model=model, contents=prompt, config=config)
@@ -211,61 +196,41 @@ def call_llm_compare_side_by_side(text_a: str, text_b: str) -> dict:
     clean_a = clean_noise(text_a)
     clean_b = clean_noise(text_b)
 
-    # # 1. Cache Check (Combined Hash)
-    # combined_hash = hashlib.md5((clean_a + clean_b).encode('utf-8')).hexdigest()
-    # if combined_hash in RESULT_CACHE:
-    #     print("✅ Cache Hit (Comparison)")
-    #     return RESULT_CACHE[combined_hash]
+    # RE-ENABLED: Proper combined Cache check
+    combined_hash = hashlib.md5((clean_a + clean_b).encode('utf-8')).hexdigest()
+    if combined_hash in RESULT_CACHE:
+        print("✅ Cache Hit (Comparison)")
+        return RESULT_CACHE[combined_hash]
 
-    # 2. Setup AI
     model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash") 
 
     single_policy_schema = {}
     for flag_id in ALL_FLAG_KEYS:
         single_policy_schema[flag_id] = {
             "type": "object",
-            "properties": {
-                "present": {"type": "boolean"}, 
-                "evidence": {"type": "string"}
-            },
+            "properties": {"present": {"type": "boolean"}, "evidence": {"type": "string"}},
             "required": ["present"]
         }
 
     comparison_schema = {
         "type": "object",
         "properties": {
-            "policy_A": {
-                "type": "object", 
-                "properties": single_policy_schema, 
-                "required": ALL_FLAG_KEYS
-            },
-            "policy_B": {
-                "type": "object", 
-                "properties": single_policy_schema, 
-                "required": ALL_FLAG_KEYS
-            }
+            "policy_A": {"type": "object", "properties": single_policy_schema, "required": ALL_FLAG_KEYS},
+            "policy_B": {"type": "object", "properties": single_policy_schema, "required": ALL_FLAG_KEYS}
         },
         "required": ["policy_A", "policy_B"]
     }
 
     config = types.GenerateContentConfig(
         temperature=0.0,
-        top_k=1, # DETERMINISTIC
+        top_k=1,
         max_output_tokens=8192,
         response_mime_type="application/json",
         response_schema=comparison_schema
     )
 
-    prompt = f"""
-    You are an impartial legal judge. Compare these two privacy policies side-by-side.
-    
-    INSTRUCTIONS:
-    1. IGNORE website noise (headers, footers, navigation menus).
-    2. Focus ONLY on the legal clauses.
-    3. Consistency is CRITICAL. If A and B contain similar text, their flags MUST match.
-    
-    DEFINITIONS:
-    {json.dumps(DEFINITIONS, indent=2)}
+    prompt = f"""Compare these two privacy policies side-by-side. Focus ONLY on legal clauses.
+    Definitions: {json.dumps(DEFINITIONS, indent=2)}
 
     ----- POLICY A START -----
     {clean_a[:40000]}
@@ -277,12 +242,7 @@ def call_llm_compare_side_by_side(text_a: str, text_b: str) -> dict:
     """
 
     try:
-        response = client.models.generate_content(
-            model=model, 
-            contents=prompt,
-            config=config
-        )
-        
+        response = client.models.generate_content(model=model, contents=prompt, config=config)
         data = json.loads(response.text)
         
         raw_a = data.get("policy_A", {})
@@ -294,11 +254,7 @@ def call_llm_compare_side_by_side(text_a: str, text_b: str) -> dict:
         report_a = {"findings": findings_a, **calculate_scores(findings_a)}
         report_b = {"findings": findings_b, **calculate_scores(findings_b)}
 
-        result = {
-            "reportA": report_a,
-            "reportB": report_b
-        }
-
+        result = {"reportA": report_a, "reportB": report_b}
         RESULT_CACHE[combined_hash] = result
         return result
 
