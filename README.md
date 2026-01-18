@@ -4,11 +4,11 @@ UOttahack Project 2026
 # Evidentia 
 ### Developed By: Justin Mui, Gordon Huang, and Evan Wu
 
-## About Evidentia
+### About Evidentia
 
 Evidentia helps people understand and compare dense Terms of Service and Privacy Policies by turning them into an evidence backed risk report. Instead of producing a generic summary, Evidentia extracts specific red flags, ties each finding to quoted text, and presents results in a consistent checklist format. It also supports side by side comparisons so users can see what changed between two policies.
 
-## Inspiration
+### Inspiration
 We have all experienced paying for a "free trial" because we forgot to cancel it in time. Or maybe falling for "you can change this plan anytime" clause but in reality, your stuck with them for the next ten years. This process is very fustrating to deal with and it was our goal to try and mitigate this issue in a efficient and accessible way. 
 
 ## How Evidentia Became Evidentia
