@@ -39,74 +39,53 @@ def health():
 
 # --- HELPER: YELLOWCAKE FETCHER ---
 def fetch_from_yellowcake(target_url: str) -> str:
-    if not YELLOWCAKE_API_KEY:
-        print("⚠️ Warning: No Yellowcake API Key found.", flush=True)
-        return "Error: Yellowcake API Key missing."
-
-    print(f"🍰 Calling Yellowcake for: {target_url}", flush=True)
-    
-    headers = {
-        "x-api-key": YELLOWCAKE_API_KEY,
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "url": target_url,
-        "prompt": "Extract the full Terms of Service or Privacy Policy text. Ignore navigation."
-    }
+    # ... (keep your existing header/payload setup) ...
 
     try:
         response = requests.post(YELLOWCAKE_URL, json=payload, headers=headers, timeout=30)
-        print(f"✅ Yellowcake Status: {response.status_code}", flush=True)
         
         if response.status_code == 200:
             data = response.json()
+            # Yellowcake can return content in different fields depending on the site
             text = data.get("text") or data.get("content") or data.get("data") or ""
             
-            # --- NEW LENGTH VALIDATION ---
-            if len(str(text).strip()) < 200:
+            # CRITICAL: Check for minimum length. 
+            # Most policies are 2000+ chars. Anything under 500 is likely a "Blocked" page.
+            if len(str(text).strip()) < 500:
                 print(f"⚠️ Scraping failed: Text too short ({len(str(text))} chars)", flush=True)
-                # We raise this exception so the frontend catches it immediately
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Error: Program was blocked when reading terms and conditions OR provided policy was less than 200 characters."
+                    status_code=422, # Unprocessable Entity
+                    detail="The website blocked our scraper. Please copy and paste the text manually."
                 )
             
-            print(f"📄 Extracted {len(text)} chars from URL.", flush=True)
             return str(text)
         else:
-            # Handle non-200 status codes (like 403 or 429)
+            # If we get a 403, 429, or 500 from Yellowcake
             raise HTTPException(
-                status_code=400, 
-                detail=f"Error: Program was blocked (Status {response.status_code}) when reading terms and conditions."
+                status_code=response.status_code, 
+                detail=f"Scraper error (Status {response.status_code}). Try manual copy-paste."
             )
             
     except HTTPException as he:
-        # Re-raise HTTPExceptions so they reach the client
         raise he
     except Exception as e:
-        print(f"❌ Yellowcake Error: {str(e)}", flush=True)
-        raise HTTPException(status_code=400, detail=f"Error connecting to scraper: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail=f"Connection error: {str(e)}")
+
 # --- HELPER: ROBUST URL DETECTOR ---
 def process_input(input_text: str) -> str:
-    # 1. Clean the input first (removes accidental spaces/newlines)
     clean_input = input_text.strip()
-    
-    # 2. Check if it's a URL (Ignore the spaces check, just check the start)
     is_url = clean_input.lower().startswith(("http://", "https://"))
+    has_spaces = " " in clean_input
 
-    if is_url:
-        print(f"🚀 URL detected: {clean_input}", flush=True)
-        try:
-            return fetch_from_yellowcake(clean_input)
-        except Exception as e:
-            # If scraper fails, we raise the error for the frontend
-            raise HTTPException(status_code=400, detail=str(e))
+    if is_url and not has_spaces:
+        print("🚀 DETECTED URL -> Fetching content...", flush=True)
+        result = fetch_from_yellowcake(clean_input)
+        
+        # NEW: Check if the result is an error message from our fetcher
+
+        return result
     
-    # 3. If it's not a URL, it's text
-    print("📝 Analyzing as raw text", flush=True)
-    return clean_input
+    return input_text
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest) -> Dict[str, Any]:

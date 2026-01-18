@@ -61,6 +61,7 @@ Object.values(MASTER_FLAGS).forEach(category => {
 async function postJSON(path, body, setLoading, setError, setResult) {
   setLoading(true);
   setError('');
+  setResult(null); // Clear old results immediately
 
   const BACKEND_URL = "https://evidentia.onrender.com"; 
 
@@ -74,16 +75,13 @@ async function postJSON(path, body, setLoading, setError, setResult) {
     const data = await res.json();
 
     if (!res.ok) {
-      // If the backend sent our specific Error message
-      if (data.detail && data.detail.includes("Error")) {
-        throw new Error("SITE_PROTECTED");
-      }
-      throw new Error(data.detail || `Request failed: ${res.status}`);
+      // Use the detail message we wrote in the Python backend
+      throw new Error(data.detail || "An unexpected error occurred.");
     }
 
     setResult(data);
   } catch (e) {
-    setError(e.message); // This will now be "SITE_PROTECTED" or the system error
+    setError(e.message);
     setResult(null);
   } finally {
     setLoading(false);

@@ -211,11 +211,11 @@ def call_llm_compare_side_by_side(text_a: str, text_b: str) -> dict:
     clean_a = clean_noise(text_a)
     clean_b = clean_noise(text_b)
 
-    # 1. Cache Check (Combined Hash)
-    combined_hash = hashlib.md5((clean_a + clean_b).encode('utf-8')).hexdigest()
-    if combined_hash in RESULT_CACHE:
-        print("✅ Cache Hit (Comparison)")
-        return RESULT_CACHE[combined_hash]
+    # # 1. Cache Check (Combined Hash)
+    # combined_hash = hashlib.md5((clean_a + clean_b).encode('utf-8')).hexdigest()
+    # if combined_hash in RESULT_CACHE:
+    #     print("✅ Cache Hit (Comparison)")
+    #     return RESULT_CACHE[combined_hash]
 
     # 2. Setup AI
     model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash") 
