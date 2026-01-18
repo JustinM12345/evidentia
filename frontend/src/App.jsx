@@ -100,8 +100,23 @@ export default function App() {
     <div className="container">
       <img src="/logo.png" alt="Evidentia Logo" className="logo" />
 
+      <p className="text-center text-gray-600 text-3xl font-serif font-bold mb-12 max-w-2xl mx-auto">
+        Presenting Facts So Clearly That The Truth Becomes Impossible To Ignore.
+      </p>
+
+      <p className="text-center text2xl font-bold">
+        How To Use This
+      </p>
+
       <p>
-        Evidentia empowers you to analyze legal terms and conditions by identifying critical data that companies may collect when you agree to their policies. You can also compare two policies side-by-side, helping you spot key differences and similarities to make more informed decisions about your privacy and data security.
+        Evidentia currently has <b>two</b> features that allow you to analyze Terms & Conditions. <br />
+        1. Checking One Policy <br />
+        2. Comparing Two Policies <br />
+        <br />
+        <b>Checking One Policy</b><br />
+        Simply copy and paste the URL/Link of the terms and conditions you are trying to analyze <b>OR</b> Go to the site and perform the simultanous commands <b>Ctrl + A</b> --&gt; <b>Ctrl + C</b>, then reuturn to this website and perform <b>Ctrl + V</b> in the text box.<br />
+        <b>Comparing Two Policies</b><br />
+        Simply copy the URL/Link of the two terms and conditions you are trying to analyze and paste them into their respective boxes <b>OR</b> Go to both websites and perform the simultanous commands <b>Ctrl + A</b> --&gt; <b>Ctrl + C</b><br />, then reuturn to this website and perform <b>Ctrl + V</b> into their respective boxes.
       </p>
 
       {/* Inputs */}
