@@ -2,6 +2,10 @@
 
 **Visit [evidentias.tech](https://www.evidentias.tech)**
 
+### Demo Video
+
+[![Watch the video](https://img.youtube.com/vi/6lv8yTX_IJY/hqdefault.jpg)](https://www.youtube.com/watch?v=6lv8yTX_IJY)
+
 # Evidentia 
 ### Developed By: Justin Mui, Gordon Huang, and Evan Wu
 
