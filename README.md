@@ -1,5 +1,6 @@
-# evidentia
-UOttahack Project 2026
+# LINK
+
+**Visit [evidentias.tech](https://www.evidentias.tech)**
 
 # Evidentia 
 ### Developed By: Justin Mui, Gordon Huang, and Evan Wu
